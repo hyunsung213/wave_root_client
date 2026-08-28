@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-sprout-50: #e8f5e9;
+  --color-sprout-100: #c8e6c9;
+  --color-sprout-500: #4caf50;
+  --color-sprout-600: #43a047;
+  --color-sprout-900: #1b5e20;
+}
+
+/* 스크롤바 완벽 숨김 처리 */
+::-webkit-scrollbar {
+  display: none;
+}
+body {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+  background-color: #f3f4f6; /* PC 화면 배경색 (회색) */
+  color: #171717;
+  font-family: Arial, Helvetica, sans-serif;
+}
