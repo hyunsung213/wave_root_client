@@ -2,6 +2,8 @@
 
 ## 2026-10-09
 
+- 2026-10-09 00:51:25 (+09:00) — `wave-root-client` 프론트 변경분을 `codex/frontend-preview-20261009` 브랜치(커밋 `9708052`)로 Vercel Preview 배포함. 배포 `READY`; 보호된 Preview URL에서 `/`, `/login`, `/manifest.webmanifest`가 모두 HTTP 200이고 앱 타이틀/manifest를 확인함. Production `main` 도메인은 변경하지 않음. Vercel env 열람은 403 권한 오류이며 Render origin이 없어 로그인·센서·영상의 백엔드 연동은 아직 검증/설정 불가.
+
 - 2026-10-09 00:44:34 (+09:00) — MJPEG 연결 종료/실패 시 반복 요청이 폭주하지 않도록 자동 재연결을 최대 3회, 1·2·4초 지수 backoff로 제한하고 이후 수동 재시도 버튼을 표시함. ESLint, Next.js production build, `git diff --check` 통과.
 
 - 2026-10-09 00:41:55 (+09:00) — 프론트 연결 재시도 중 상태 표시를 보완해 요청이 진행 중일 때 중복 재연결 버튼이 노출되지 않게 함. ESLint와 Next.js production build 재실행 통과.
