@@ -1,77 +1,73 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Settings, ChevronRight, Plus, Info } from "lucide-react";
+import { Bell, Settings, ChevronRight, Plus, CalendarDays, Sprout, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 import Image from "next/image";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import dynamic from "next/dynamic";
 import { getPlants, getUserMe } from "@/lib/get";
-import { updatePlant } from "@/lib/put";
+import { updatePlant } from "@/lib/patch";
+import { deletePlant } from "@/lib/delete";
+import { getGrowth, formatDate, HARVEST_DAYS } from "@/lib/growth";
 import { useRouter } from "next/navigation";
+import { EmptyState, RequestError } from "@/components/ui/RequestState";
+import { useStore } from "@/store/useStore";
+import type { Plant, User } from "@/store/useStore";
+import { getErrorMessage } from "@/lib/errors";
+import { usePullToRefresh } from "@/lib/usePullToRefresh";
+
+const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
 
 export default function MyPage() {
   const router = useRouter();
-  const [myPlants, setMyPlants] = useState<any[]>([]);
+  const setStorePlants = useStore((state) => state.setMyPlants);
+  const [myPlants, setMyPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [plantsError, setPlantsError] = useState(false);
+  const [userError, setUserError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [savingName, setSavingName] = useState(false);
+  const [actionError, setActionError] = useState("");
   
-  const [selectedPlant, setSelectedPlant] = useState<any | null>(null);
+  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [editName, setEditName] = useState("");
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [daysTogether, setDaysTogether] = useState<number | null>(null);
+  const [confirmingRelease, setConfirmingRelease] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   
-  // 바텀 시트 상태
-  const [sheetState, setSheetState] = useState<"closed" | "half" | "full">("closed");
-
-  const sheetVariants = {
-    closed: { y: 850, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },
-    half: { y: 400, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },
-    full: { y: 50, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },
-  };
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  usePullToRefresh(() => setRetryCount((value) => value + 1));
 
   const closeSheet = () => {
-    setSheetState("closed");
+    setIsSheetOpen(false);
+    setConfirmingRelease(false);
     setTimeout(() => setSelectedPlant(null), 400);
-  };
-
-  const onDragEnd = (event: any, info: PanInfo) => {
-    const velocityY = info.velocity.y;
-    const offsetY = info.offset.y;
-
-    if (sheetState === "half") {
-      if (velocityY < -200 || offsetY < -50) {
-        setSheetState("full");
-      } else if (velocityY > 200 || offsetY > 50) {
-        closeSheet();
-      }
-    } else if (sheetState === "full") {
-      if (velocityY > 200 || offsetY > 50) {
-        setSheetState("half");
-      }
-    }
   };
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const [plantsData, userData] = await Promise.all([
+      setLoading(true);
+      setPlantsError(false);
+      setUserError(false);
+      const [plantsResult, userResult] = await Promise.allSettled([
           getPlants(),
           getUserMe()
         ]);
-        
-        if (plantsData.success) {
-          setMyPlants(plantsData.plants || plantsData.data || []);
-        }
-        
-        if (userData?.success && userData.user) {
-          setUser(userData.user);
-        }
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      } finally {
-        setLoading(false);
-      }
+      if (plantsResult.status === "fulfilled" && plantsResult.value.success) {
+        const plants = plantsResult.value.plants || plantsResult.value.data || [];
+        setMyPlants(plants);
+        setStorePlants(plants);
+      } else setPlantsError(true);
+      if (userResult.status === "fulfilled" && userResult.value.success && userResult.value.user) {
+        setUser(userResult.value.user);
+        const createdAt = userResult.value.user.createdAt;
+        setDaysTogether(createdAt ? Math.max(1, Math.ceil((Date.now() - new Date(createdAt).getTime()) / (1000 * 3600 * 24))) : null);
+      } else setUserError(true);
+      setLoading(false);
     };
     
     fetchData();
-  }, []);
+  }, [retryCount, setStorePlants]);
 
   const getPlantImage = (type: string = "") => {
     if (type.includes("토마토")) return "/plants/tomato.png";
@@ -80,23 +76,55 @@ export default function MyPage() {
     return "/plants/tomato.png";
   };
 
-  const handlePlantClick = (plant: any) => {
+  const handlePlantClick = (plant: Plant) => {
+    setActionError("");
     setSelectedPlant(plant);
     setEditName(plant.name || "");
-    setSheetState("half");
+    setConfirmingRelease(false);
+    setIsSheetOpen(true);
+  };
+
+  const handleRelease = async () => {
+    if (!selectedPlant) return;
+    setReleasing(true);
+    try {
+      const data = await deletePlant(selectedPlant._id);
+      if (data.success) {
+        const nextPlants = myPlants.filter((p) => p._id !== selectedPlant._id);
+        setMyPlants(nextPlants);
+        setStorePlants(nextPlants);
+        closeSheet();
+      } else {
+        setActionError(data.message || "파양에 실패했습니다. 다시 시도해주세요.");
+      }
+    } catch (error: unknown) {
+      console.error("Failed to release plant:", error);
+      setActionError(getErrorMessage(error, "파양 중 오류가 발생했습니다. 다시 시도해주세요."));
+    } finally {
+      setReleasing(false);
+    }
   };
 
   const handleSaveName = async () => {
-    if (!selectedPlant || !editName.trim()) return;
+    if (!selectedPlant || !editName.trim() || savingName) return;
+    const previousPlants = myPlants;
+    const nextName = editName.trim();
+    const nextPlants = myPlants.map((plant) => plant._id === selectedPlant._id ? { ...plant, name: nextName } : plant);
+    setActionError("");
+    setSavingName(true);
+    setMyPlants(nextPlants);
+    setStorePlants(nextPlants);
     try {
-      const data = await updatePlant(selectedPlant._id, { name: editName });
-      if (data.success) {
-        setMyPlants(myPlants.map(p => p._id === selectedPlant._id ? { ...p, name: editName } : p));
-        closeSheet();
-      }
+      const data = await updatePlant(selectedPlant._id, { name: nextName });
+      if (!data.success) throw new Error(data.message || "이름 수정에 실패했습니다.");
+      closeSheet();
     } catch (error) {
       console.error("Failed to update name:", error);
-      alert("이름 수정에 실패했습니다.");
+      setMyPlants(previousPlants);
+      setStorePlants(previousPlants);
+      setActionError("이름 수정에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -106,10 +134,11 @@ export default function MyPage() {
       <header className="flex justify-between items-center px-6 pt-6 pb-4">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
         <div className="flex gap-3 text-gray-500">
-          <button onClick={() => router.push('/notifications')} className="hover:text-gray-800 transition-colors relative">
+          <button type="button" aria-label="새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button"><RefreshCw size={20} /></button>
+          <button aria-label="알림" onClick={() => router.push('/notifications')} className="icon-button hover:text-gray-800 transition-colors relative">
             <Bell size={24} strokeWidth={2} />
           </button>
-          <button className="hover:text-gray-800 transition-colors">
+          <button aria-label="회원 정보" onClick={() => router.push('/profile')} className="icon-button hover:text-gray-800 transition-colors">
             <Settings size={24} strokeWidth={2} />
           </button>
         </div>
@@ -118,6 +147,7 @@ export default function MyPage() {
       <div className="px-6 flex flex-col gap-5">
         {/* 프로필 카드 */}
         <section>
+          {userError && !loading ? <RequestError message="회원 정보를 불러오지 못했어요." onRetry={() => setRetryCount((value) => value + 1)} /> : (
           <button 
             onClick={() => router.push('/profile')}
             className="w-full text-left bg-white border border-gray-100 rounded-[1.5rem] p-5 flex items-center gap-4 shadow-sm hover:bg-gray-50 transition-colors"
@@ -129,15 +159,16 @@ export default function MyPage() {
               <div className="flex items-center gap-2 mb-1">
                 <span className="bg-[#6ea447] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">LV.1</span>
                 <h2 className="text-[17px] font-extrabold text-gray-800 truncate">
-                  {user?.name || (user?.email ? user.email.split('@')[0] : "연희")}님
+                   {user?.name || (user?.email ? user.email.split('@')[0] : "정원사")}님
                 </h2>
               </div>
               <p className="text-xs font-medium text-gray-500">
-                함께한 지 {user?.createdAt ? Math.ceil((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 3600 * 24)) : 28}일
+                {daysTogether !== null ? `함께한 지 ${daysTogether}일` : "가입일 정보 없음"}
               </p>
             </div>
             <ChevronRight className="text-gray-400 shrink-0" size={20} />
           </button>
+          )}
         </section>
 
         {/* 내 정원 */}
@@ -147,9 +178,7 @@ export default function MyPage() {
               <span className="w-1 h-5 bg-[#6ea447] rounded-full"></span>
               내 정원
             </h3>
-            <button className="text-xs font-semibold text-[#6ea447] flex items-center gap-0.5">
-              전체 보기 <ChevronRight size={14} />
-            </button>
+            <span className="text-xs font-semibold text-gray-400">{myPlants.length}개 키우는 중</span>
           </div>
 
           <div className="bg-white border border-gray-100 rounded-[1.5rem] pt-5 pb-3 shadow-sm">
@@ -163,13 +192,18 @@ export default function MyPage() {
                   </div>
                 ))}
               </div>
+            ) : plantsError ? (
+              <div className="px-5 pb-3"><RequestError onRetry={() => setRetryCount((value) => value + 1)} /></div>
+            ) : myPlants.length === 0 ? (
+              <div className="px-5 pb-3"><EmptyState message="아직 분양받은 식물이 없어요." action={<button type="button" onClick={() => router.push('/market')} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">식물 둘러보기</button>} /></div>
             ) : (
               <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar px-5">
                 {myPlants.map((plant, idx) => {
                   const isActive = idx === 0;
+                  const { percent } = getGrowth(plant.createdAt);
                   return (
-                    <div 
-                      key={plant._id} 
+                    <button type="button"
+                      key={plant._id}
                       onClick={() => handlePlantClick(plant)}
                       className={`snap-start min-w-[96px] h-[140px] rounded-[1.25rem] p-3 flex flex-col items-center justify-center cursor-pointer transition-all shrink-0
                         ${isActive
@@ -178,21 +212,24 @@ export default function MyPage() {
                         }`}
                     >
                       <div className="w-[44px] h-[44px] relative mb-2">
-                        <Image 
-                          src={getPlantImage(plant.type)} 
-                          alt={plant.name} 
-                          fill 
+                        <Image
+                          src={getPlantImage(plant.type)}
+                          alt={plant.name}
+                          fill
                           className="object-contain drop-shadow-sm"
                         />
                       </div>
                       <span className="text-[12px] font-extrabold text-gray-800 mb-1 text-center leading-tight">{plant.name}</span>
                       <span className={`text-[11px] font-extrabold mb-1.5 ${isActive ? 'text-[#6ea447]' : 'text-gray-400'}`}>
-                        {isActive ? "65%" : "20%"}
+                        {percent}%
                       </span>
                       <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${isActive ? 'bg-[#6ea447] w-[65%]' : 'bg-gray-300 w-[20%]'}`}></div>
+                        <div
+                          className={`h-full rounded-full ${isActive ? 'bg-[#6ea447]' : 'bg-gray-300'}`}
+                          style={{ width: `${percent}%` }}
+                        ></div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
                 
@@ -216,84 +253,151 @@ export default function MyPage() {
           </h3>
           <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 shadow-sm">
             <div className="flex justify-between items-center mb-1">
-              <h4 className="font-extrabold text-gray-800">베이직 플랜</h4>
-              <span className="text-[10px] text-[#6ea447] bg-[#eef7e6] border border-gray-100 font-bold px-3 py-1 rounded-full">구독 관리</span>
+              <h4 className="font-extrabold text-gray-800">싹키워 이용권</h4>
+              <span className="text-[10px] text-gray-500 bg-gray-100 font-bold px-3 py-1 rounded-full">BETA</span>
             </div>
-            <p className="text-xs font-medium text-gray-500 mb-4">다음 결제일: 2026.05.18</p>
-            <div className="flex gap-2">
-              <div className="flex-1 bg-gray-50 rounded-xl p-3 flex flex-col items-center border border-gray-100">
-                <span className="text-[10px] font-medium text-gray-400 mb-1">구독 기간</span>
-                <span className="font-extrabold text-sm text-gray-700">1개월</span>
-              </div>
-              <div className="flex-1 bg-gray-50 rounded-xl p-3 flex flex-col items-center border border-gray-100">
-                <span className="text-[10px] font-medium text-gray-400 mb-1">보유 포인트</span>
-                <span className="font-extrabold text-sm text-[#6ea447]">2,150 P</span>
-              </div>
-            </div>
+            <p className="text-xs font-medium text-gray-500">
+              베타 기간에는 모든 기능을 무료로 이용할 수 있어요.
+            </p>
           </div>
         </section>
       </div>
 
       {/* 하단 여백 */}
-      <div className="h-6"></div>
+      <div className="h-12"></div>
 
-      {/* 식물 이름 수정 바텀 시트 (Framer Motion 적용) */}
-      <AnimatePresence>
-        {selectedPlant && (
-          <div className="absolute inset-0 z-50 overflow-hidden">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeSheet}
-              className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10" 
-            />
-            
-            <motion.div
-              variants={sheetVariants}
-              initial="closed"
-              animate={sheetState}
-              exit="closed"
-              drag="y"
-              dragConstraints={{ top: 50 }}
-              dragElastic={0.2}
-              onDragEnd={onDragEnd}
-              className="absolute top-0 left-0 right-0 h-[800px] bg-white rounded-t-[32px] z-20 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.15)]"
-            >
-              {/* 오버스크롤 대비 배경 */}
-              <div className="absolute top-full left-0 right-0 h-[500px] bg-white"></div>
+      {/* 식물 설정 바텀 시트 */}
+      {selectedPlant && <BottomSheet open={isSheetOpen} onClose={closeSheet} halfY={220}>
+        {selectedPlant &&
+          (() => {
+                  const { startDate, harvestDate, remaining, percent } = getGrowth(selectedPlant.createdAt);
 
-              {/* 드래그 핸들 */}
-              <div className="flex justify-center pt-5 pb-3 cursor-grab active:cursor-grabbing shrink-0 w-full bg-white z-30 rounded-t-[32px]">
-                <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
-              </div>
+                  return (
+                    <>
+                      {/* 식물 헤더 */}
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="w-16 h-16 bg-gray-50 rounded-2xl border border-gray-100 relative shrink-0 overflow-hidden">
+                          <Image
+                            src={getPlantImage(selectedPlant.type)}
+                            alt={selectedPlant.name || ""}
+                            fill
+                            className="object-contain p-1.5"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-[22px] font-extrabold text-gray-900 tracking-tight truncate">
+                            {selectedPlant.name}
+                          </h3>
+                          <p className="text-[13px] font-medium text-gray-400 truncate">{selectedPlant.type}</p>
+                        </div>
+                      </div>
 
-              {/* 스크롤 영역 */}
-              <div className="flex-1 overflow-y-auto px-6 pb-28 pt-2">
-                <h3 className="text-[22px] font-extrabold text-gray-900 mb-6 tracking-tight">식물 정보 수정</h3>
-                
-                <div className="mb-6">
-                  <label className="block text-sm font-bold text-gray-500 mb-2">식물 이름 (애칭)</label>
-                  <input 
-                    type="text" 
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium text-gray-800 outline-none focus:border-[#6ea447] transition-colors shadow-sm"
-                    placeholder="예: 귀여운 토마토"
-                  />
-                </div>
-                
-                <button 
-                  onClick={handleSaveName}
-                  className="w-full bg-[#6ea447] hover:bg-[#5b873a] text-white font-extrabold py-4 rounded-2xl transition-colors text-[16px] shadow-md active:scale-[0.98]"
-                >
-                  저장하기
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                      {/* 성장률 */}
+                      <div className="bg-gray-50 border border-gray-100 rounded-[1.25rem] p-5 mb-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-[13px] font-bold text-gray-500">성장률</span>
+                          <span className="text-[15px] font-extrabold text-[#6ea447]">{percent}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#6ea447] rounded-full transition-all" style={{ width: `${percent}%` }}></div>
+                        </div>
+                        <p className="text-[11px] font-medium text-gray-400 mt-2">
+                          평균 재배기간 {HARVEST_DAYS}일 기준
+                        </p>
+                      </div>
+
+                      {/* 정보 */}
+                      <div className="bg-white border border-gray-100 rounded-[1.25rem] p-5 mb-6 shadow-sm flex flex-col gap-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-[#eef7e6] rounded-xl flex items-center justify-center shrink-0 text-[#6ea447]">
+                            <CalendarDays size={16} />
+                          </div>
+                          <span className="text-[13px] font-medium text-gray-500 flex-1">입양일</span>
+                          <span className="text-[14px] font-extrabold text-gray-800">{formatDate(startDate)}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-[#eef7e6] rounded-xl flex items-center justify-center shrink-0 text-[#6ea447]">
+                            <Sprout size={16} />
+                          </div>
+                          <span className="text-[13px] font-medium text-gray-500 flex-1">예상 수확일</span>
+                          <span className="text-[14px] font-extrabold text-gray-800">{formatDate(harvestDate)}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-[#eef7e6] rounded-xl flex items-center justify-center shrink-0 text-[#6ea447]">
+                            <Clock size={16} />
+                          </div>
+                          <span className="text-[13px] font-medium text-gray-500 flex-1">남은 일수</span>
+                          <span className="text-[14px] font-extrabold text-[#6ea447]">
+                            {remaining > 0 ? `${remaining}일` : "수확 시기예요!"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 이름 수정 */}
+                      <div className="mb-6">
+                        <label htmlFor="plant-nickname" className="block text-sm font-bold text-gray-500 mb-2">식물 이름 (애칭)</label>
+                        <input
+                          id="plant-nickname"
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium text-gray-800 outline-none focus:border-[#6ea447] transition-colors shadow-sm mb-3"
+                          placeholder="예: 귀여운 토마토"
+                        />
+                        <button
+                          onClick={handleSaveName}
+                          disabled={savingName || !editName.trim()}
+                          className="w-full bg-[#6ea447] hover:bg-[#5b873a] text-white font-extrabold py-4 rounded-2xl transition-colors text-[16px] shadow-md active:scale-[0.98]"
+                        >
+                          {savingName ? "저장 중…" : "저장하기"}
+                        </button>
+                      </div>
+
+                      {actionError && <p role="alert" className="mb-4 text-sm text-red-700">{actionError}</p>}
+                      {/* 파양 */}
+                      <div className="border-t border-gray-100 pt-6">
+                        {confirmingRelease ? (
+                          <div className="bg-red-50 border border-red-100 rounded-[1.25rem] p-5">
+                            <div className="flex items-start gap-2.5 mb-4">
+                              <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                              <p className="text-[13px] font-bold text-red-600 leading-relaxed">
+                                정말 {selectedPlant.name}을(를) 파양할까요?
+                                <br />
+                                <span className="font-medium text-red-400">
+                                  성장 일지도 모두 삭제되며 되돌릴 수 없어요.
+                                </span>
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setConfirmingRelease(false)}
+                                disabled={releasing}
+                                className="flex-1 bg-white border border-gray-200 text-gray-600 font-extrabold py-3.5 rounded-2xl text-[15px] hover:bg-gray-50 transition-colors active:scale-[0.98]"
+                              >
+                                취소
+                              </button>
+                              <button
+                                onClick={handleRelease}
+                                disabled={releasing}
+                                className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white font-extrabold py-3.5 rounded-2xl text-[15px] transition-colors active:scale-[0.98]"
+                              >
+                                {releasing ? "처리 중..." : "파양하기"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmingRelease(true)}
+                            className="w-full bg-white border border-red-200 text-red-500 font-extrabold py-4 rounded-2xl text-[16px] hover:bg-red-50 transition-colors active:scale-[0.98]"
+                          >
+                            파양하기
+                          </button>
+                        )}
+                      </div>
+              </>
+            );
+          })()}
+      </BottomSheet>}
     </div>
   );
 }

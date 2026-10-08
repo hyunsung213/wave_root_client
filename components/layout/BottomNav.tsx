@@ -4,32 +4,45 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Sprout, Video, FileText, User } from "lucide-react";
 import { useStore } from "@/store/useStore";
+import { useIsSheetOpen } from "@/lib/sheetState";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const myPlants = useStore((state) => state.myPlants) || [];
-  
-  const defaultPlantId = myPlants.length > 0 ? myPlants[0]._id : "1";
+  const isSheetOpen = useIsSheetOpen();
+
+  const defaultPlantId = myPlants[0]?._id;
 
   const navItems = [
     { name: "홈", path: "/home", icon: Home },
     { name: "분양", path: "/market", icon: Sprout },
-    { name: "실시간", path: `/live/${defaultPlantId}`, icon: Video },
+    { name: "실시간", path: defaultPlantId ? `/live/${defaultPlantId}` : "", icon: Video },
     { name: "기록", path: `/record`, icon: FileText },
     { name: "마이", path: "/mypage", icon: User },
   ];
 
+  if (isSheetOpen) return null;
+
   return (
-    <nav className="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-[#e2ecc8] flex items-center justify-around px-2 z-50">
+    <nav aria-label="주요 메뉴" className="absolute bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] bg-white border-t border-[#e2ecc8] flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)] z-50">
       {navItems.map((item) => {
+        const Icon = item.icon;
+        if (!item.path) {
+          return (
+            <span key={item.name} aria-label="실시간: 분양받은 식물이 없어요" className="flex h-full w-full flex-col items-center justify-center gap-1 text-gray-300">
+              <Icon size={20} aria-hidden="true" />
+              <span className="text-[10px] font-bold">{item.name}</span>
+            </span>
+          );
+        }
         const baseRoute = item.path.split('/')[1];
         const isActive = pathname.startsWith(`/${baseRoute}`);
-        const Icon = item.icon;
         
         return (
           <Link
             key={item.path}
             href={item.path}
+            aria-current={isActive ? "page" : undefined}
             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
               isActive ? "text-[#6ea447]" : "text-gray-400 hover:text-gray-500"
             }`}

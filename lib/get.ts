@@ -24,7 +24,6 @@ export async function getPlantsWithRecords() {
 
 export async function getPlantById(plantId: string) {
   const res = await api.get(`/api/web/plants/${plantId}`);
-  console.log(res)
   return res.data;
 }
 
@@ -45,13 +44,7 @@ export async function getEvents(plantId: string, page = 1, limit = 30, order = '
   return res.data;
 }
 
-// 5. 급수 이력
-export async function getWaterRecords(plantId: string, page = 1, limit = 30) {
-  const res = await api.get(`/api/web/water/${plantId}`, { params: { page, limit } });
-  return res.data;
-}
-
-// 6. 활동 카운터
+// 5. 활동 카운터
 export async function getActivity() {
   const res = await api.get("/api/web/activity");
   return res.data;

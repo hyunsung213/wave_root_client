@@ -1,4 +1,5 @@
 import BottomNav from "@/components/layout/BottomNav";
+import SessionGate from "@/components/layout/SessionGate";
 
 export default function MainLayout({
   children,
@@ -6,11 +7,13 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex-1 flex flex-col w-full h-full relative">
-      <div className="flex-1 overflow-y-auto pb-16">
-        {children}
+    <SessionGate>
+      <div className="flex-1 flex flex-col w-full h-full relative">
+        <div data-main-scroll className="flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4rem+env(safe-area-inset-bottom))]">
+          {children}
+        </div>
+        <BottomNav />
       </div>
-      <BottomNav />
-    </div>
+    </SessionGate>
   );
 }

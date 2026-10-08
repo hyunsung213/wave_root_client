@@ -1,85 +1,54 @@
 "use client";
 
-import { Filter, Bell, Settings, X, Info } from "lucide-react";
+import { Filter, Bell, Settings, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useState } from "react";
-import { motion, useAnimation, PanInfo, AnimatePresence } from "framer-motion";
-import { createPlant } from "@/lib/post";
+import dynamic from "next/dynamic";
 import { plantsData } from "@/lib/plantsData";
+import { useStore } from "@/store/useStore";
+import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
+
+const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
 
 export default function MarketPage() {
   const router = useRouter();
+  const setPendingPlantName = useStore((state) => state.setPendingPlantName);
 
   // Bottom Sheet States
   const [selectedPlant, setSelectedPlant] = useState<typeof plantsData[0] | null>(null);
-  const [sheetState, setSheetState] = useState<"closed" | "half" | "full">("closed");
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [customPlantName, setCustomPlantName] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [sortBy, setSortBy] = useState<"recommended" | "price">("recommended");
+
+  const sortedPlants =
+    sortBy === "price" ? [...plantsData].sort((a, b) => a.price - b.price) : plantsData;
 
   // 식물 클릭 시 Bottom Sheet 오픈
   const openSheet = (plant: typeof plantsData[0]) => {
     setSelectedPlant(plant);
-    setCustomPlantName(`우리집 ${plant.name}`);
-    setSheetState("half");
+    setCustomPlantName(readDraft(`plant-name:${plant.id}`) || `우리집 ${plant.name}`);
+    setNameError("");
+    setIsSheetOpen(true);
   };
 
-  // Bottom Sheet 닫기
   const closeSheet = () => {
-    setSheetState("closed");
+    setIsSheetOpen(false);
+    setTimeout(() => setSelectedPlant(null), 400);
   };
 
-  // 드래그(스와이프) 제어 로직
-  const onDragEnd = (event: any, info: PanInfo) => {
-    const velocityY = info.velocity.y;
-    const offsetY = info.offset.y;
-
-    if (sheetState === "half") {
-      // 위로 강하게 치거나 위로 일정 이상 올리면 전체 화면
-      if (velocityY < -200 || offsetY < -50) {
-        setSheetState("full");
-      } 
-      // 아래로 강하게 치거나 내리면 닫힘
-      else if (velocityY > 200 || offsetY > 50) {
-        closeSheet();
-      } 
-    } else if (sheetState === "full") {
-      // 위에서 아래로 내리면 절반 화면으로
-      if (velocityY > 200 || offsetY > 50) {
-        setSheetState("half");
-      }
-    }
-  };
-
-  // 모달 높이/위치 설정 (픽셀 기준: 850px 컨테이너 기준)
-  const sheetVariants = {
-    closed: { y: 850, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },
-    half: { y: 400, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } }, // 450px visible
-    full: { y: 50, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },  // 800px visible
-  };
-
-  // 실제 분양 API 호출 (모달 하단 버튼 클릭 시)
-  const submitAdoptPlant = async () => {
+  // 상품 확인 화면으로 이동한다. 결제는 주문 API가 준비될 때까지 진행하지 않는다.
+  const goToCheckout = () => {
     if (!selectedPlant) return;
     if (!customPlantName.trim()) {
-      alert("식물 이름을 입력해주세요.");
+      setNameError("식물 이름을 입력해주세요.");
       return;
     }
 
-    try {
-      const responseData = await createPlant({
-        name: customPlantName.trim(),
-        type: selectedPlant.name,
-      });
-
-      if (responseData.success) {
-        alert("분양이 완료되었습니다! 내 정원에서 확인해보세요.");
-        router.push("/home");
-      } else {
-        alert(responseData.message || "분양에 실패했습니다.");
-      }
-    } catch (error: any) {
-      alert(error.response?.data?.message || error.message || "서버 오류가 발생했습니다.");
-    }
+    removeDraft(`plant-name:${selectedPlant.id}`);
+    setPendingPlantName(customPlantName.trim());
+    router.push(`/checkout/${selectedPlant.id}`);
   };
 
   return (
@@ -90,10 +59,10 @@ export default function MarketPage() {
             <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
           </div>
           <div className="flex gap-3 text-gray-400">
-            <button onClick={() => router.push('/notifications')} className="hover:text-gray-600 transition-colors relative">
+            <button aria-label="알림" onClick={() => router.push('/notifications')} className="icon-button hover:text-gray-600 transition-colors relative">
               <Bell size={22} />
             </button>
-            <button className="hover:text-gray-600 transition-colors">
+            <button aria-label="회원 정보" onClick={() => router.push('/profile')} className="icon-button hover:text-gray-600 transition-colors">
               <Settings size={22} />
             </button>
           </div>
@@ -110,6 +79,7 @@ export default function MarketPage() {
               분양받은 식물은 정기적으로<br />
               관리하고 수확 후 보내드려요.
             </p>
+            <p className="mt-2 text-xs font-semibold text-amber-700">결제 기능은 준비 중입니다.</p>
           </div>
           <div className="absolute -right-2 bottom-0 w-[140px] h-[155px]">
             <Image 
@@ -121,17 +91,24 @@ export default function MarketPage() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-4 text-xs">
-          <span className="font-bold text-gray-700">추천순 <Filter size={12} className="inline ml-1" /></span>
-          <span className="text-gray-400">필터</span>
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-xs font-bold text-gray-400">{plantsData.length}종</span>
+          <button
+            onClick={() => setSortBy(sortBy === "recommended" ? "price" : "recommended")}
+            aria-label={sortBy === "recommended" ? "추천순 정렬, 가격 낮은순으로 변경" : "가격 낮은순 정렬, 추천순으로 변경"}
+            className="flex min-h-11 items-center gap-1 text-xs font-bold text-gray-700 bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+          >
+            <Filter size={12} />
+            {sortBy === "recommended" ? "추천순" : "가격 낮은순"}
+          </button>
         </div>
 
         <div className="flex flex-col gap-4">
-          {plantsData.map((plant) => (
-            <div 
+          {sortedPlants.map((plant) => (
+            <button type="button"
               key={plant.id} 
               onClick={() => openSheet(plant)}
-              className="flex gap-4 p-4 border border-gray-100 rounded-3xl shadow-sm hover:border-[#e2ecc8] transition-colors cursor-pointer active:bg-gray-50"
+              className="flex w-full gap-4 p-4 border border-gray-100 rounded-3xl shadow-sm hover:border-[#e2ecc8] transition-colors text-left cursor-pointer active:bg-gray-50"
             >
               <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center shrink-0 relative overflow-hidden border border-gray-100">
                 <Image 
@@ -154,49 +131,27 @@ export default function MarketPage() {
                 </p>
                 <p className="font-bold text-sm text-[#6ea447]">{plant.price.toLocaleString()}원</p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
 
-      {/* 스마트폰 프레임 내부용 고정 모달 컨테이너 */}
-      <AnimatePresence>
-        {sheetState !== "closed" && selectedPlant && (
-          <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[100]">
-            <div className="relative w-full max-w-[400px] h-[850px] pointer-events-auto overflow-hidden rounded-[3rem]">
-              
-              {/* 반투명 배경 (클릭 시 닫힘) */}
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={closeSheet}
-                className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-10"
-              />
-
-              {/* Bottom Sheet 영역 */}
-              <motion.div
-                variants={sheetVariants}
-                initial="closed"
-                animate={sheetState}
-                exit="closed"
-                drag="y"
-                dragConstraints={{ top: 50 }}
-                dragElastic={0.2}
-                onDragEnd={onDragEnd}
-                className="absolute top-0 left-0 right-0 h-[800px] bg-white rounded-t-[32px] z-20 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.15)]"
-              >
-                {/* 오버스크롤 시 하단 흰색 배경 보장용 */}
-                <div className="absolute top-full left-0 right-0 h-[500px] bg-white"></div>
-
-                {/* 드래그 핸들 */}
-                <div className="flex justify-center pt-5 pb-3 cursor-grab active:cursor-grabbing shrink-0 w-full bg-white z-30 rounded-t-[32px]">
-                  <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
-                </div>
-
-                {/* 모달 내부 스크롤 가능한 콘텐츠 */}
-                <div className="flex-1 overflow-y-auto px-6 pb-28">
-                  <div className="w-full h-52 bg-gray-50 rounded-3xl relative mb-6 border border-gray-100 shrink-0 mt-2">
+      {selectedPlant && <BottomSheet
+        open={isSheetOpen}
+        onClose={closeSheet}
+        halfY={280}
+        footer={
+          <button
+            onClick={goToCheckout}
+            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-lg shadow-xl hover:bg-gray-800 transition-colors active:scale-[0.98]"
+          >
+            상품 확인하기
+          </button>
+        }
+      >
+        {selectedPlant && (
+          <>
+                  <div className="w-full h-36 bg-gray-50 rounded-3xl relative mb-5 border border-gray-100 shrink-0 mt-1">
                     <Image 
                       src={selectedPlant.imageUrl} 
                       alt={selectedPlant.name}
@@ -207,30 +162,40 @@ export default function MarketPage() {
                     />
                   </div>
                   
-                  <div className="mb-6 flex justify-between items-end">
-                    <div>
-                      <h2 className="text-3xl font-extrabold text-gray-900 mb-1">{selectedPlant.name}</h2>
-                      <span className="bg-[#eef7e6] text-[#6ea447] text-[12px] font-bold px-3 py-1 rounded-full">
-                        {selectedPlant.growthPeriod}
-                      </span>
-                    </div>
-                    <p className="text-2xl font-bold text-[#6ea447]">{selectedPlant.price.toLocaleString()}원</p>
+                  <div className="mb-5 flex justify-between items-center gap-3">
+                    <h2 className="text-[26px] font-extrabold text-gray-900 truncate">{selectedPlant.name}</h2>
+                    <p className="text-2xl font-extrabold text-[#6ea447] shrink-0">
+                      {selectedPlant.price.toLocaleString()}원
+                    </p>
                   </div>
 
                   <div className="mb-6">
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                     <label htmlFor="market-plant-name" className="block text-sm font-bold text-gray-700 mb-2">
                       식물 이름 정하기
                     </label>
                     <input
+                       id="market-plant-name"
                       type="text"
+                       autoComplete="off"
                       value={customPlantName}
-                      onChange={(e) => setCustomPlantName(e.target.value)}
+                       onChange={(e) => { setCustomPlantName(e.target.value); setNameError(""); if (selectedPlant) writeDraft(`plant-name:${selectedPlant.id}`, e.target.value); }}
+                       onBlur={() => setNameError(customPlantName.trim() ? "" : "식물 이름을 입력해주세요.")}
+                       aria-invalid={Boolean(nameError)}
+                       aria-describedby={nameError ? "market-plant-name-error" : undefined}
                       placeholder={`예: 우리집 ${selectedPlant.name}`}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-800 font-bold focus:outline-none focus:ring-2 focus:ring-[#6ea447] focus:border-transparent transition-all"
                     />
+                     {nameError && <p id="market-plant-name-error" className="mt-2 text-xs text-red-700">{nameError}</p>}
                   </div>
 
-                  <div className="bg-gray-50 rounded-2xl p-5 mb-6 space-y-5 border border-gray-100">
+                  <div className="bg-gray-50 rounded-2xl p-5 mb-6 space-y-4 border border-gray-100">
+                    <div className="flex justify-between items-center gap-3">
+                      <span className="text-sm font-bold text-gray-500 shrink-0">재배 기간</span>
+                      <span className="text-[14px] font-extrabold text-gray-800 text-right">
+                        {selectedPlant.growthPeriod}
+                      </span>
+                    </div>
+                    <div className="h-px bg-gray-200"></div>
                     <div>
                       <h4 className="text-sm font-bold text-gray-500 mb-2">식물 특징</h4>
                       <p className="text-[15px] font-medium text-gray-800 leading-relaxed">
@@ -245,28 +210,9 @@ export default function MarketPage() {
                       분양받은 식물은 스마트팜 환경에서 안전하게 대신 키워주며, 수확 시기에 맞추어 집으로 배송됩니다.
                     </p>
                   </div>
-                </div>
-              </motion.div>
-
-              {/* 하단 고정 분양하기 버튼 (모달 밖으로 분리) */}
-              <motion.div
-                initial={{ y: 150 }}
-                animate={{ y: 0 }}
-                exit={{ y: 150 }}
-                transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-                className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent pt-12 pb-8 z-30 pointer-events-none"
-              >
-                <button 
-                  onClick={submitAdoptPlant}
-                  className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-lg shadow-xl hover:bg-gray-800 transition-colors active:scale-[0.98] pointer-events-auto"
-                >
-                  이 식물 분양받기
-                </button>
-              </motion.div>
-            </div>
-          </div>
+          </>
         )}
-      </AnimatePresence>
+      </BottomSheet>}
     </>
   );
 }

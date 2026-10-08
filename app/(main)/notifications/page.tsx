@@ -2,33 +2,93 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Bell, Info, CheckCircle2, AlertTriangle, Sprout } from "lucide-react";
+import { ChevronLeft, Bell, Info, CheckCircle2, AlertTriangle, Sprout, RefreshCw } from "lucide-react";
 import { getNotifications } from "@/lib/get";
+import { readNotification } from "@/lib/patch";
+import { RequestError } from "@/components/ui/RequestState";
+import { usePullToRefresh } from "@/lib/usePullToRefresh";
+
+interface NotificationItem {
+  _id?: string;
+  id?: string;
+  title: string;
+  message?: string;
+  content?: string;
+  createdAt: string;
+  type?: string;
+  isRead?: boolean;
+}
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [actionError, setActionError] = useState("");
+  usePullToRefresh(() => setRetryCount((value) => value + 1));
 
   useEffect(() => {
     const fetchNotis = async () => {
+      setLoading(true);
+      setLoadError(false);
       try {
         const data = await getNotifications();
-        let notis = data?.notifications || [];
+        if (data?.success === false) throw new Error("알림을 불러오지 못했습니다.");
+        const notis: NotificationItem[] = data?.notifications || [];
         // 시간 역순 정렬
-        notis.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setNotifications(notis);
+        setNotifications([...notis].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setPage(1);
+        setHasMore(notis.length === 30);
       } catch (error) {
         console.error("Failed to fetch notifications:", error);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
     fetchNotis();
-  }, []);
+  }, [retryCount]);
+
+  const loadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    setActionError("");
+    try {
+      const nextPage = page + 1;
+      const data = await getNotifications(nextPage);
+      if (data?.success === false) throw new Error("추가 알림을 불러오지 못했습니다.");
+      const items: NotificationItem[] = data?.notifications || [];
+      setNotifications((previous) => [...previous, ...items]);
+      setPage(nextPage);
+      setHasMore(items.length === 30);
+    } catch {
+      setActionError("추가 알림을 불러오지 못했어요. 다시 시도해주세요.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const markAsRead = async (item: NotificationItem) => {
+    const id = item._id || item.id;
+    if (!id || item.isRead) return;
+    setActionError("");
+    setNotifications((previous) => previous.map((value) => (value._id || value.id) === id ? { ...value, isRead: true } : value));
+    try {
+      const result = await readNotification(id);
+      if (result.success === false) throw new Error("읽음 처리 실패");
+    } catch {
+      setNotifications((previous) => previous.map((value) => (value._id || value.id) === id ? { ...value, isRead: false } : value));
+      setActionError("알림을 읽음 처리하지 못했어요. 다시 시도해주세요.");
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return "날짜 미상";
     const now = new Date();
     const isToday = d.toDateString() === now.toDateString();
     
@@ -46,10 +106,11 @@ export default function NotificationsPage() {
   };
 
   const getIcon = (type: string) => {
-    switch (type) {
+    switch (type.toLowerCase()) {
       case "info": return <Info size={20} className="text-blue-500" />;
       case "success": return <CheckCircle2 size={20} className="text-[#6ea447]" />;
       case "warning": return <AlertTriangle size={20} className="text-orange-500" />;
+      case "sensor": return <AlertTriangle size={20} className="text-orange-500" />;
       case "plant": return <Sprout size={20} className="text-[#6ea447]" />;
       default: return <Bell size={20} className="text-gray-400" />;
     }
@@ -59,11 +120,11 @@ export default function NotificationsPage() {
     <div className="flex flex-col bg-gray-50 min-h-full">
       {/* 헤더 */}
       <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 bg-white border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-gray-800 hover:text-black transition-colors -ml-2 p-2">
+        <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button text-gray-800 hover:text-black transition-colors -ml-2">
           <ChevronLeft size={28} strokeWidth={2.5} />
         </button>
         <h1 className="text-lg font-extrabold text-gray-800">알림</h1>
-        <div className="w-8"></div> {/* 여백용 */}
+        <button type="button" aria-label="알림 새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button text-gray-700"><RefreshCw size={20} /></button>
       </header>
 
       {/* 알림 목록 */}
@@ -80,7 +141,7 @@ export default function NotificationsPage() {
               </div>
             ))}
           </div>
-        ) : notifications.length === 0 ? (
+        ) : loadError ? <RequestError onRetry={() => setRetryCount((value) => value + 1)} /> : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center mt-10">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
               <Bell size={28} className="text-gray-300" />
@@ -91,9 +152,12 @@ export default function NotificationsPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {notifications.map((noti, idx) => (
-              <div 
+              <button type="button"
                 key={noti._id || idx} 
-                className={`bg-white p-5 rounded-[1.25rem] border border-gray-100 shadow-sm transition-colors cursor-pointer hover:bg-gray-50 flex gap-4 ${noti.isRead ? 'opacity-60' : ''}`}
+                disabled={noti.isRead || !(noti._id || noti.id)}
+                onClick={() => markAsRead(noti)}
+                aria-label={`${noti.title}, 읽음 처리`}
+                className={`w-full bg-white p-5 rounded-[1.25rem] border border-gray-100 shadow-sm transition-colors text-left flex gap-4 ${noti.isRead ? 'opacity-60' : 'hover:bg-gray-50'}`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${noti.isRead ? 'bg-gray-50' : 'bg-[#f4f8f1]'}`}>
                   {getIcon(noti.type || "default")}
@@ -109,10 +173,12 @@ export default function NotificationsPage() {
                     {noti.message || noti.content}
                   </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
+        {!loading && !loadError && hasMore && <button type="button" onClick={loadMore} disabled={loadingMore} className="mt-5 min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">{loadingMore ? "불러오는 중…" : "알림 더 보기"}</button>}
+        {actionError && <p role="alert" className="mt-3 text-center text-sm text-red-700">{actionError}</p>}
       </div>
     </div>
   );

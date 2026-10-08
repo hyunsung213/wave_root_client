@@ -1,113 +1,133 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Bell, Settings, Image as ImageIcon, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { Bell, Settings, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import { getWaterRecords, getEvents, getPlantsWithRecords } from "@/lib/get";
-import { useStore } from "@/store/useStore";
+import dynamic from "next/dynamic";
+import { getEvents, getPlantsWithRecords } from "@/lib/get";
+import { getGrowth } from "@/lib/growth";
+import { useStore, type Plant } from "@/store/useStore";
+import { EmptyState, RequestError } from "@/components/ui/RequestState";
+import { usePullToRefresh } from "@/lib/usePullToRefresh";
+
+const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
+
+interface GrowthEvent {
+  _id?: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  eventDate?: string;
+  createdAt?: string;
+}
+
+const subscribeToHydration = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 
 export default function RecordPage() {
   const router = useRouter();
   const myPlants = useStore((state) => state.myPlants);
   
   const [activeIndex, setActiveIndex] = useState(0);
-  const [plantsList, setPlantsList] = useState<any[]>(myPlants);
+  const [plantsList, setPlantsList] = useState<Plant[]>(myPlants);
   
   const currentPlant = plantsList[activeIndex];
   
-  const [activeTab, setActiveTab] = useState<"water" | "events">("water");
-  const [waterHistory, setWaterHistory] = useState<any[]>([]);
-  const [eventsHistory, setEventsHistory] = useState<any[]>([]);
+  const [eventsHistory, setEventsHistory] = useState<GrowthEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
+  const [plantsLoading, setPlantsLoading] = useState(true);
+  const [plantsError, setPlantsError] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState(false);
+  const isMounted = useSyncExternalStore(subscribeToHydration, clientSnapshot, serverSnapshot);
   
   // Modal States
-  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  const [sheetState, setSheetState] = useState<"closed" | "half" | "full">("closed");
+  const [selectedEvent, setSelectedEvent] = useState<GrowthEvent | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  usePullToRefresh(() => setRetryCount((value) => value + 1));
 
-  const openSheet = (event: any) => {
+  const openSheet = (event: GrowthEvent) => {
     setSelectedEvent(event);
-    setSheetState("half");
+    setIsSheetOpen(true);
   };
 
   const closeSheet = () => {
-    setSheetState("closed");
-  };
-
-  const onDragEnd = (event: any, info: PanInfo) => {
-    const velocityY = info.velocity.y;
-    const offsetY = info.offset.y;
-
-    if (sheetState === "half") {
-      if (velocityY < -200 || offsetY < -50) {
-        setSheetState("full");
-      } else if (velocityY > 200 || offsetY > 50) {
-        closeSheet();
-      }
-    } else if (sheetState === "full") {
-      if (velocityY > 200 || offsetY > 50) {
-        setSheetState("half");
-      }
-    }
-  };
-
-  const sheetVariants = {
-    closed: { y: 850, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },
-    half: { y: 400, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },
-    full: { y: 50, transition: { type: "spring" as const, bounce: 0, duration: 0.4 } },
+    setIsSheetOpen(false);
+    setTimeout(() => setSelectedEvent(null), 400);
   };
 
   useEffect(() => {
-    setIsMounted(true);
-    
     const fetchPlants = async () => {
+      setPlantsLoading(true);
+      setPlantsError(false);
       try {
         const data = await getPlantsWithRecords();
         if (data.success) {
           const fetched = data.plants || data.data || [];
           setPlantsList(fetched);
-          if (activeIndex >= fetched.length) {
-            setActiveIndex(0);
-          }
-        }
+          setActiveIndex((index) => index >= fetched.length ? 0 : index);
+        } else throw new Error("식물 목록을 불러오지 못했습니다.");
       } catch (err) {
         console.error("Failed to fetch plants with records", err);
+        setPlantsError(true);
+      } finally {
+        setPlantsLoading(false);
       }
     };
     fetchPlants();
-  }, []);
+  }, [retryCount]);
 
   useEffect(() => {
     const fetchHistories = async () => {
-      if (!currentPlant?._id) return;
+      if (plantsLoading) return;
+      if (!currentPlant?._id) {
+        setLoading(false);
+        setEventsHistory([]);
+        return;
+      }
       setLoading(true);
+      setHistoryError(false);
       try {
-        const [waterData, eventsData] = await Promise.all([
-          getWaterRecords(currentPlant._id),
-          getEvents(currentPlant._id, 1, 30, 'desc')
-        ]);
-        
-        setWaterHistory(waterData.success && waterData.water ? waterData.water : []);
-        setEventsHistory(eventsData.success && eventsData.events ? eventsData.events : []);
+        const eventsData = await getEvents(currentPlant._id, 1, 30, 'desc');
+        if (!eventsData.success) throw new Error("기록을 불러오지 못했습니다.");
+        const events = eventsData.events || [];
+        setEventsHistory(events);
+        setPage(1);
+        setHasMore(events.length === 30);
       } catch (error) {
         console.error("Failed to fetch histories", error);
-        setWaterHistory([]);
-        setEventsHistory([]);
+        setHistoryError(true);
       } finally {
         setLoading(false);
       }
     };
     
     fetchHistories();
-  }, [currentPlant?._id]);
+  }, [currentPlant?._id, plantsLoading, retryCount]);
 
-  const getEmojiForType = (type: string = "") => {
-    if (type.includes("토마토")) return "🍅";
-    if (type.includes("상추")) return "🥬";
-    if (type.includes("바질")) return "🌿";
-    return "🪴";
+  const loadMore = async () => {
+    if (!currentPlant?._id || loadingMore) return;
+    setLoadingMore(true);
+    setMoreError(false);
+    try {
+      const nextPage = page + 1;
+      const data = await getEvents(currentPlant._id, nextPage, 30, 'desc');
+      if (!data.success) throw new Error("추가 기록을 불러오지 못했습니다.");
+      const events = data.events || [];
+      setEventsHistory((previous) => [...previous, ...events]);
+      setPage(nextPage);
+      setHasMore(events.length === 30);
+    } catch {
+      setMoreError(true);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const getPlantImage = (type: string = "") => {
@@ -124,8 +144,10 @@ export default function RecordPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "날짜 미상";
     const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return "날짜 미상";
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     const ampm = d.getHours() < 12 ? "오전" : "오후";
@@ -155,16 +177,20 @@ export default function RecordPage() {
       <header className="flex justify-between items-center px-6 pt-6 pb-4">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
         <div className="flex gap-3 text-gray-500">
-          <button onClick={() => router.push('/notifications')} className="hover:text-gray-800 transition-colors relative">
+          <button type="button" aria-label="새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button"><RefreshCw size={20} /></button>
+          <button aria-label="알림" onClick={() => router.push('/notifications')} className="icon-button hover:text-gray-800 transition-colors relative">
             <Bell size={24} strokeWidth={2} />
           </button>
-          <button className="hover:text-gray-800 transition-colors">
+          <button aria-label="회원 정보" onClick={() => router.push('/profile')} className="icon-button hover:text-gray-800 transition-colors">
             <Settings size={24} strokeWidth={2} />
           </button>
         </div>
       </header>
 
       <div className="px-6 flex flex-col gap-5">
+        {plantsError ? <RequestError onRetry={() => setRetryCount((value) => value + 1)} /> : plantsLoading ? renderSkeleton() : plantsList.length === 0 ? (
+          <EmptyState message="아직 기록할 식물이 없어요." action={<button type="button" onClick={() => router.push('/market')} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">식물 둘러보기</button>} />
+        ) : <>
         {/* 식물 캐러셀 */}
         <section>
           <div 
@@ -177,7 +203,9 @@ export default function RecordPage() {
               }
             }}
           >
-            {plantsList.map((p) => (
+            {plantsList.map((p) => {
+              const { percent, remaining } = getGrowth(p.createdAt);
+              return (
               <div key={p._id} className="w-full shrink-0 snap-center">
                 <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 flex gap-4 items-center shadow-sm">
                   <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 shrink-0 relative overflow-hidden">
@@ -196,18 +224,21 @@ export default function RecordPage() {
                         </span>
                       </div>
                       <div className="flex flex-col items-center">
-                        <span className="font-extrabold text-[#6ea447]">50%</span>
+                        <span className="font-extrabold text-[#6ea447]">{percent}%</span>
                         <span className="text-[10px] text-gray-400">성장률</span>
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="font-extrabold text-gray-700">약 14일</span>
+                        <span className="font-extrabold text-gray-700">
+                          {remaining > 0 ? `약 ${remaining}일` : "수확 시기"}
+                        </span>
                         <span className="text-[10px] text-gray-400">예상 수확까지</span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {plantsList.length > 1 && (
@@ -222,89 +253,22 @@ export default function RecordPage() {
           )}
         </section>
 
-        {/* 탭 */}
-        <section>
-          <div className="flex gap-2 bg-gray-50 border border-gray-100 rounded-[1rem] p-1">
-            <button 
-              onClick={() => setActiveTab("water")}
-              className={`flex-1 py-2.5 rounded-[0.75rem] font-extrabold text-sm transition-all ${
-                activeTab === "water"
-                  ? "bg-white text-[#3b82f6] shadow-sm border border-gray-100"
-                  : "text-gray-400"
-              }`}
-            >
-              💧 급수 기록
-            </button>
-            <button 
-              onClick={() => setActiveTab("events")}
-              className={`flex-1 py-2.5 rounded-[0.75rem] font-extrabold text-sm transition-all ${
-                activeTab === "events"
-                  ? "bg-white text-[#6ea447] shadow-sm border border-gray-100"
-                  : "text-gray-400"
-              }`}
-            >
-              🌱 성장 일지
-            </button>
-          </div>
-        </section>
-
         {/* 타임라인 */}
         <section>
-          {loading ? renderSkeleton() : (
+          {loading ? renderSkeleton() : historyError ? <RequestError message="성장 기록을 불러오지 못했어요." onRetry={() => setRetryCount((value) => value + 1)} /> : (
             <div className="relative pl-7">
               {/* 세로 타임라인 선 - 기록이 있을 때만 표시 */}
-              {((activeTab === "water" && waterHistory.length > 0) || (activeTab === "events" && eventsHistory.length > 0)) && (
+              {eventsHistory.length > 0 && (
                 <div className="absolute left-[11px] top-4 bottom-4 w-[2px] bg-gray-200 rounded-full"></div>
               )}
 
               <div className="flex flex-col gap-7">
-                {activeTab === "water" && (
-                  waterHistory.length === 0 ? (
-                    <div className="bg-white border border-gray-100 rounded-[1.25rem] py-8 text-center -ml-7 shadow-sm">
-                      <p className="text-sm font-bold text-gray-400">아직 급수 기록이 없어요 💧</p>
-                    </div>
-                  ) : (
-                    waterHistory.map((record, idx) => {
-                      const cupCount = record.volume ? Math.max(1, Math.floor(record.volume / 100)) : 1;
-                      const displayCount = Math.min(5, cupCount);
-                      
-                      return (
-                        <div key={record._id || idx} className="relative">
-                          <div className={`absolute -left-[22px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${idx === 0 ? "bg-[#3b82f6]" : "bg-gray-300"}`}></div>
-                          <div className="bg-white border border-gray-100 rounded-[1.25rem] p-4 flex items-center gap-3 shadow-sm">
-                            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-[18px] shrink-0 border border-blue-100">
-                              <div className="flex justify-center items-center -space-x-[6px]">
-                                {Array.from({ length: displayCount }).map((_, i) => (
-                                  <span key={i} className="relative block leading-none drop-shadow-sm">
-                                    💧
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-extrabold text-sm text-gray-800 mb-0.5">
-                                {record.volume ? (
-                                  <><span className="text-[#3b82f6]">{record.volume}ml</span> 급수</>
-                                ) : "급수"}
-                              </h4>
-                              <p className="text-[11px] font-medium text-gray-400">
-                                {isMounted ? formatDate(record.createdAt) : ""}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )
-                )}
-
-                {activeTab === "events" && (
-                  eventsHistory.length === 0 ? (
-                    <div className="bg-white border border-gray-100 rounded-[1.25rem] py-8 text-center -ml-7 shadow-sm">
-                      <p className="text-sm font-bold text-gray-400">아직 성장 일지가 없어요 🌱</p>
-                    </div>
-                  ) : (
-                    eventsHistory.map((event, idx) => {
+                {eventsHistory.length === 0 ? (
+                  <div className="bg-white border border-gray-100 rounded-[1.25rem] py-8 text-center -ml-7 shadow-sm">
+                    <p className="text-sm font-bold text-gray-400">아직 성장 일지가 없어요 🌱</p>
+                  </div>
+                ) : (
+                  eventsHistory.map((event, idx) => {
                       let emoji = "📝";
                       let iconBgColor = "bg-orange-50";
                       let iconBorderColor = "border-orange-100";
@@ -322,7 +286,7 @@ export default function RecordPage() {
                       return (
                         <div key={event._id || idx} className="relative">
                           <div className={`absolute -left-[22px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${dotColor}`}></div>
-                          <div 
+                          <button type="button"
                             className="bg-white border border-gray-100 rounded-[1.25rem] p-4 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
                             onClick={() => openSheet(event)}
                           >
@@ -349,57 +313,25 @@ export default function RecordPage() {
                                 </p>
                               </div>
                             </div>
-                          </div>
+                          </button>
                         </div>
                       );
-                    })
-                  )
+                  })
                 )}
               </div>
             </div>
           )}
+          {!loading && !historyError && hasMore && <button type="button" onClick={loadMore} disabled={loadingMore} className="mt-4 min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">{loadingMore ? "불러오는 중…" : "기록 더 보기"}</button>}
+          {moreError && <p role="alert" className="mt-2 text-sm text-red-700">추가 기록을 불러오지 못했어요. 다시 시도해주세요.</p>}
         </section>
+        </>}
       </div>
 
-      <div className="h-6"></div>
+      <div className="h-12"></div>
 
-      {/* 스마트폰 프레임 내부용 고정 모달 컨테이너 (시장 페이지 양식) */}
-      <AnimatePresence>
-        {sheetState !== "closed" && selectedEvent && (
-          <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[100]">
-            <div className="relative w-full max-w-[400px] h-[850px] pointer-events-auto overflow-hidden rounded-[3rem]">
-              
-              {/* 반투명 배경 (클릭 시 닫힘) */}
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={closeSheet}
-                className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-10"
-              />
-
-              {/* Bottom Sheet 영역 */}
-              <motion.div
-                initial="closed"
-                animate={sheetState}
-                exit="closed"
-                variants={sheetVariants}
-                drag="y"
-                dragConstraints={{ top: 50 }}
-                dragElastic={0.2}
-                onDragEnd={onDragEnd}
-                className="absolute top-0 left-0 right-0 h-[800px] bg-white rounded-t-[32px] z-20 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.15)]"
-              >
-                {/* 오버스크롤 시 하단 흰색 배경 보장용 */}
-                <div className="absolute top-full left-0 right-0 h-[500px] bg-white"></div>
-
-                {/* 드래그 핸들 */}
-                <div className="flex justify-center pt-5 pb-3 cursor-grab active:cursor-grabbing shrink-0 w-full bg-white z-30 rounded-t-[32px]">
-                  <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
-                </div>
-
-                {/* 모달 내부 스크롤 가능한 콘텐츠 */}
-                <div className="flex-1 overflow-y-auto px-6 pb-28 hide-scrollbar">
+      {selectedEvent && <BottomSheet open={isSheetOpen} onClose={closeSheet}>
+        {selectedEvent && (
+          <>
                   <div className="flex items-center gap-4 mb-6 mt-2">
                     {(() => {
                       let emoji = "📝";
@@ -456,12 +388,9 @@ export default function RecordPage() {
                       />
                     </div>
                   )}
-                </div>
-              </motion.div>
-            </div>
-          </div>
+          </>
         )}
-      </AnimatePresence>
+      </BottomSheet>}
     </div>
   );
 }

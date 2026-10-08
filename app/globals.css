@@ -8,14 +8,33 @@
   --color-sprout-900: #1b5e20;
 }
 
-/* 스크롤바 완벽 숨김 처리 */
-::-webkit-scrollbar {
-  display: none;
-}
 body {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
   background-color: #f3f4f6; /* PC 화면 배경색 (회색) */
   color: #171717;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid #4b7c2b;
+  outline-offset: 2px;
+}
+
+.icon-button {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

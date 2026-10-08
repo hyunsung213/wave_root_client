@@ -18,6 +18,7 @@ export interface Plant {
   type: string;
   createdAt?: string;
   growthRate?: number; // 클라이언트 전용 또는 이후 추가될 수 있음
+  streamingUrl?: string | null;
 }
 
 interface AppState {
@@ -29,6 +30,8 @@ interface AppState {
   setMyPlants: (plants: Plant[]) => void;
   selectedPlantId: string | null;
   setSelectedPlantId: (id: string | null) => void;
+  pendingPlantName: string | null;
+  setPendingPlantName: (name: string | null) => void;
   logout: () => void;
 }
 
@@ -43,15 +46,23 @@ export const useStore = create<AppState>()(
       setMyPlants: (plants) => set({ myPlants: plants }),
       selectedPlantId: null,
       setSelectedPlantId: (id) => set({ selectedPlantId: id }),
+      pendingPlantName: null,
+      setPendingPlantName: (name) => set({ pendingPlantName: name }),
       logout: () => {
         if (typeof window !== "undefined") {
           localStorage.removeItem("token");
+          sessionStorage.removeItem("token");
         }
-        set({ user: null, accessToken: null, myPlants: [], selectedPlantId: null });
+        set({ user: null, accessToken: null, myPlants: [], selectedPlantId: null, pendingPlantName: null });
       },
     }),
     {
       name: "sprout-store",
+      partialize: (state) => ({
+        myPlants: state.myPlants,
+        selectedPlantId: state.selectedPlantId,
+        pendingPlantName: state.pendingPlantName,
+      }),
     }
   )
 );
