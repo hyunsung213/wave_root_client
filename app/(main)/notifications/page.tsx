@@ -6,6 +6,7 @@ import { ChevronLeft, Bell, Info, CheckCircle2, AlertTriangle, Sprout, RefreshCw
 import { getNotifications } from "@/lib/get";
 import { readNotification } from "@/lib/patch";
 import { RequestError } from "@/components/ui/RequestState";
+import PullToRefreshStatus from "@/components/ui/PullToRefreshStatus";
 import { usePullToRefresh } from "@/lib/usePullToRefresh";
 
 interface NotificationItem {
@@ -29,7 +30,8 @@ export default function NotificationsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [actionError, setActionError] = useState("");
-  usePullToRefresh(() => setRetryCount((value) => value + 1));
+  const [actionFeedback, setActionFeedback] = useState("");
+  const pullState = usePullToRefresh(() => setRetryCount((value) => value + 1));
 
   useEffect(() => {
     const fetchNotis = async () => {
@@ -76,10 +78,12 @@ export default function NotificationsPage() {
     const id = item._id || item.id;
     if (!id || item.isRead) return;
     setActionError("");
+    setActionFeedback("");
     setNotifications((previous) => previous.map((value) => (value._id || value.id) === id ? { ...value, isRead: true } : value));
     try {
       const result = await readNotification(id);
       if (result.success === false) throw new Error("읽음 처리 실패");
+      setActionFeedback("알림을 읽음 처리했어요.");
     } catch {
       setNotifications((previous) => previous.map((value) => (value._id || value.id) === id ? { ...value, isRead: false } : value));
       setActionError("알림을 읽음 처리하지 못했어요. 다시 시도해주세요.");
@@ -118,6 +122,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="flex flex-col bg-gray-50 min-h-full">
+      <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
       <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 bg-white border-b border-gray-100">
         <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button text-gray-800 hover:text-black transition-colors -ml-2">
@@ -130,13 +135,14 @@ export default function NotificationsPage() {
       {/* 알림 목록 */}
       <div className="flex-1 overflow-y-auto px-6 pt-6 pb-20 hide-scrollbar">
         {loading ? (
-          <div className="flex flex-col gap-4">
+          <div role="status" aria-label="알림을 불러오는 중" className="flex flex-col gap-4">
+            <span className="sr-only">알림을 불러오는 중…</span>
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-white p-5 rounded-[1.25rem] border border-gray-100 shadow-sm animate-pulse flex gap-4">
-                <div className="w-10 h-10 bg-gray-100 rounded-full shrink-0"></div>
-                <div className="flex-1 flex flex-col gap-2 pt-1">
-                  <div className="h-4 w-32 bg-gray-100 rounded-full"></div>
-                  <div className="h-3 w-48 bg-gray-50 rounded-full"></div>
+              <div key={i} aria-hidden="true" className="flex animate-pulse gap-4 rounded-[1.25rem] border border-gray-100 bg-white p-5 shadow-sm">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-gray-100"></div>
+                <div className="flex flex-1 flex-col gap-2 pt-1">
+                  <div className="h-4 w-32 rounded-full bg-gray-100"></div>
+                  <div className="h-3 w-48 rounded-full bg-gray-50"></div>
                 </div>
               </div>
             ))}
@@ -154,10 +160,11 @@ export default function NotificationsPage() {
             {notifications.map((noti, idx) => (
               <button type="button"
                 key={noti._id || idx} 
-                disabled={noti.isRead || !(noti._id || noti.id)}
+                disabled={!(noti._id || noti.id)}
                 onClick={() => markAsRead(noti)}
-                aria-label={`${noti.title}, 읽음 처리`}
-                className={`w-full bg-white p-5 rounded-[1.25rem] border border-gray-100 shadow-sm transition-colors text-left flex gap-4 ${noti.isRead ? 'opacity-60' : 'hover:bg-gray-50'}`}
+                aria-label={`${noti.title}, ${noti.isRead ? "읽음" : "읽지 않음. 눌러 읽음 처리"}`}
+                aria-pressed={Boolean(noti.isRead)}
+                className={`flex w-full gap-4 rounded-[1.25rem] border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors disabled:cursor-default ${noti.isRead ? 'opacity-70' : 'hover:bg-gray-50'}`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${noti.isRead ? 'bg-gray-50' : 'bg-[#f4f8f1]'}`}>
                   {getIcon(noti.type || "default")}
@@ -172,12 +179,16 @@ export default function NotificationsPage() {
                   <p className="text-[13px] font-medium text-gray-600 leading-relaxed line-clamp-2">
                     {noti.message || noti.content}
                   </p>
+                  <span className={`mt-1 inline-block text-[11px] font-bold ${noti.isRead ? "text-gray-500" : "text-[#496d2f]"}`}>
+                    {noti.isRead ? "읽음" : "읽지 않음"}
+                  </span>
                 </div>
               </button>
             ))}
           </div>
         )}
         {!loading && !loadError && hasMore && <button type="button" onClick={loadMore} disabled={loadingMore} className="mt-5 min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">{loadingMore ? "불러오는 중…" : "알림 더 보기"}</button>}
+        {actionFeedback && <p role="status" aria-live="polite" className="mt-3 text-center text-sm font-semibold text-[#496d2f]">{actionFeedback}</p>}
         {actionError && <p role="alert" className="mt-3 text-center text-sm text-red-700">{actionError}</p>}
       </div>
     </div>

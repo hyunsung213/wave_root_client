@@ -1,10 +1,14 @@
 "use client";
 
-import { ReactNode, useEffect, useId, useRef, useState } from "react";
-import { motion, AnimatePresence, PanInfo, useDragControls } from "framer-motion";
+import { ReactNode, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence, PanInfo, useDragControls, useReducedMotion } from "framer-motion";
 import { useHideBottomNav } from "@/lib/sheetState";
 
 const spring = { type: "spring" as const, bounce: 0, duration: 0.4 };
+const subscribeToHydration = () => () => {};
+const getHydrationSnapshot = () => true;
+const getServerHydrationSnapshot = () => false;
 
 interface BottomSheetProps {
   open: boolean;
@@ -29,22 +33,51 @@ export default function BottomSheet({
 }: BottomSheetProps) {
   const [snap, setSnap] = useState<"half" | "full">("half");
   const titleId = useId();
+  const descriptionId = useId();
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   const dragControls = useDragControls();
+  const reduceMotion = useReducedMotion();
+  const isHydrated = useSyncExternalStore(subscribeToHydration, getHydrationSnapshot, getServerHydrationSnapshot);
+  const portalTarget = isHydrated ? document.body : null;
 
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  const motionTransition = reduceMotion ? { duration: 0 } : spring;
   const sheetVariants = {
-    closed: { y: "100%", transition: spring },
-    half: { y: Math.min(halfY, 240), transition: spring },
-    full: { y: 0, transition: spring },
+    closed: { y: "100%", transition: motionTransition },
+    half: { y: Math.min(halfY, 240), transition: motionTransition },
+    full: { y: 0, transition: motionTransition },
   };
 
   useHideBottomNav(open);
+
+  useEffect(() => {
+    if (!open) return;
+    const backgroundElements = Array.from(document.querySelectorAll<HTMLElement>("[data-main-scroll], nav[aria-label='주요 메뉴']"));
+    const previousOverflow = document.body.style.overflow;
+    const previousStates = backgroundElements.map((element) => ({
+      element,
+      ariaHidden: element.getAttribute("aria-hidden"),
+      inert: element.inert,
+    }));
+    for (const element of backgroundElements) {
+      element.inert = true;
+      element.setAttribute("aria-hidden", "true");
+    }
+    document.body.style.overflow = "hidden";
+    return () => {
+      for (const { element, ariaHidden, inert } of previousStates) {
+        element.inert = inert;
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
+      }
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
 
   const closeSheet = () => {
     setSnap("half");
@@ -99,7 +132,9 @@ export default function BottomSheet({
     }
   };
 
-  return (
+  if (!portalTarget) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
@@ -119,6 +154,7 @@ export default function BottomSheet({
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}
+              aria-describedby={description ? descriptionId : undefined}
               variants={sheetVariants}
               initial="closed"
               animate={snap}
@@ -139,7 +175,7 @@ export default function BottomSheet({
               <div className="flex shrink-0 items-start justify-between gap-3 px-6 pb-4">
                 <div>
                   <h3 id={titleId} className="text-[20px] font-extrabold text-gray-900 tracking-tight">{title || "상세 내용"}</h3>
-                  {description && <p className="mt-1 text-[13px] font-medium text-gray-500">{description}</p>}
+                  {description && <p id={descriptionId} className="mt-1 text-[13px] font-medium text-gray-600">{description}</p>}
                 </div>
                 <button ref={closeRef} type="button" onClick={closeSheet} aria-label="닫기" className="icon-button -mr-2 -mt-2 rounded-full text-gray-700 hover:bg-gray-100">×</button>
               </div>
@@ -152,6 +188,7 @@ export default function BottomSheet({
           </div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    portalTarget,
   );
 }

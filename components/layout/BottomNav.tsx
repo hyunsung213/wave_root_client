@@ -29,10 +29,10 @@ export default function BottomNav() {
         const Icon = item.icon;
         if (!item.path) {
           return (
-            <span key={item.name} aria-label="실시간: 분양받은 식물이 없어요" className="flex h-full w-full flex-col items-center justify-center gap-1 text-gray-300">
+            <button key={item.name} type="button" disabled aria-label="실시간 영상: 분양받은 식물이 없어 사용할 수 없음" className="flex h-full w-full flex-col items-center justify-center gap-1 text-gray-300 disabled:cursor-not-allowed disabled:opacity-60">
               <Icon size={20} aria-hidden="true" />
               <span className="text-[10px] font-bold">{item.name}</span>
-            </span>
+            </button>
           );
         }
         const baseRoute = item.path.split('/')[1];

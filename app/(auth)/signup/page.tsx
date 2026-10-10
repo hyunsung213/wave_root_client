@@ -96,7 +96,7 @@ export default function SignupPage() {
             aria-invalid={touched.name && Boolean(errors.name)}
             aria-describedby={touched.name && errors.name ? "signup-name-error" : undefined}
             placeholder="이름을 입력해주세요" 
-            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:outline-none focus:border-[#6ea447] transition-colors text-sm font-medium"
+            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:border-[#6ea447] transition-colors text-sm font-medium"
             required
           />
         </div>
@@ -117,7 +117,7 @@ export default function SignupPage() {
             aria-invalid={touched.email && Boolean(errors.email)}
             aria-describedby={touched.email && errors.email ? "signup-email-error" : undefined}
             placeholder="이메일 주소를 입력해주세요" 
-            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:outline-none focus:border-[#6ea447] transition-colors text-sm font-medium"
+            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:border-[#6ea447] transition-colors text-sm font-medium"
             required
           />
         </div>
@@ -138,7 +138,7 @@ export default function SignupPage() {
             aria-invalid={touched.phone && Boolean(errors.phone)}
             aria-describedby={touched.phone && errors.phone ? "signup-phone-error" : undefined}
             placeholder="전화번호 (예: 010-1234-5678)" 
-            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:outline-none focus:border-[#6ea447] transition-colors text-sm font-medium"
+            className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:border-[#6ea447] transition-colors text-sm font-medium"
           />
         </div>
         {touched.phone && errors.phone && <p id="signup-phone-error" className="text-xs text-red-600">{errors.phone}</p>}
@@ -157,7 +157,7 @@ export default function SignupPage() {
             aria-invalid={touched.pwd && Boolean(errors.pwd)}
             aria-describedby={touched.pwd && errors.pwd ? "signup-password-error" : undefined}
             placeholder="비밀번호를 입력해주세요" 
-            className="w-full pl-12 pr-12 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:outline-none focus:border-[#6ea447] transition-colors text-sm font-medium"
+            className="w-full pl-12 pr-12 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:border-[#6ea447] transition-colors text-sm font-medium"
             required
           />
           <button 
@@ -173,7 +173,7 @@ export default function SignupPage() {
 
         <div>
           <label htmlFor="signup-confirm" className="sr-only">비밀번호 확인</label>
-          <input id="signup-confirm" type="password" name="confirmPwd" autoComplete="new-password" value={formData.confirmPwd} onChange={handleChange} onBlur={() => setTouched((value) => ({ ...value, confirmPwd: true }))} aria-invalid={touched.confirmPwd && Boolean(errors.confirmPwd)} aria-describedby={touched.confirmPwd && errors.confirmPwd ? "signup-confirm-error" : undefined} placeholder="비밀번호를 다시 입력해주세요" className="w-full rounded-2xl border border-[#e2ecc8] bg-[#f8f9ef] px-4 py-4 text-sm font-medium focus:border-[#6ea447] focus:outline-none" required />
+        <input id="signup-confirm" type="password" name="confirmPwd" autoComplete="new-password" value={formData.confirmPwd} onChange={handleChange} onBlur={() => setTouched((value) => ({ ...value, confirmPwd: true }))} aria-invalid={touched.confirmPwd && Boolean(errors.confirmPwd)} aria-describedby={touched.confirmPwd && errors.confirmPwd ? "signup-confirm-error" : undefined} placeholder="비밀번호를 다시 입력해주세요" className="w-full rounded-2xl border border-[#e2ecc8] bg-[#f8f9ef] px-4 py-4 text-sm font-medium focus:border-[#6ea447]" required />
           {touched.confirmPwd && errors.confirmPwd && <p id="signup-confirm-error" className="mt-2 text-xs text-red-600">{errors.confirmPwd}</p>}
         </div>
 

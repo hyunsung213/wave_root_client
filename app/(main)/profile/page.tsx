@@ -4,241 +4,197 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { getUserMe } from "@/lib/get";
-import { updatePassword } from "@/lib/patch";
+import { updatePassword, updateUserProfile } from "@/lib/patch";
 import { getErrorMessage } from "@/lib/errors";
+import { useStore, type User } from "@/store/useStore";
+
+type ProfileFields = { name: string; email: string; phone: string };
 
 export default function ProfileEditPage() {
   const router = useRouter();
+  const setUser = useStore((state) => state.setUser);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState("");
+  const [profileSubmitting, setProfileSubmitting] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [profileFeedback, setProfileFeedback] = useState("");
+  const [passwordFeedback, setPasswordFeedback] = useState("");
   const [passwordTouched, setPasswordTouched] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    currentPwd: "",
-    newPwd: "",
-    passwordConfirm: "",
-  });
+  const [profile, setProfile] = useState<ProfileFields>({ name: "", email: "", phone: "" });
+  const [password, setPassword] = useState({ currentPwd: "", newPwd: "", passwordConfirm: "" });
 
   useEffect(() => {
+    let active = true;
     const fetchUser = async () => {
       setLoading(true);
       setLoadError(false);
       try {
         const data = await getUserMe();
-        if (data.success && data.user) {
-          setFormData(prev => ({
-            ...prev,
-            name: data.user.name || data.user.email.split('@')[0],
-            email: data.user.email || "",
-            phone: data.user.phone || "",
-          }));
-        } else {
-          throw new Error("사용자 정보를 확인할 수 없습니다.");
-        }
-      } catch (err) {
-        console.error("Failed to load user info:", err);
-        setLoadError(true);
+        if (!data.success || !data.user) throw new Error("사용자 정보를 확인할 수 없습니다.");
+        if (!active) return;
+        const user: User = data.user;
+        setProfile({ name: user.name || user.email.split("@")[0], email: user.email || "", phone: user.phone || "" });
+      } catch (error) {
+        console.error("Failed to load user info:", error);
+        if (active) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
-    fetchUser();
+    void fetchUser();
+    return () => { active = false; };
   }, [retryCount]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleProfileSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (profileSubmitting) return;
+    const name = profile.name.trim();
+    const phone = profile.phone.trim();
+    if (!name) {
+      setProfileFeedback("이름을 입력해주세요.");
+      document.getElementById("profile-name")?.focus();
+      return;
+    }
+    if (name.length > 80 || phone.length > 30) {
+      setProfileFeedback("이름은 80자, 전화번호는 30자 이내로 입력해주세요.");
+      return;
+    }
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submitting) return;
-    setFeedback("");
-
-    if (formData.currentPwd || formData.newPwd || formData.passwordConfirm) {
-      if (!formData.currentPwd) {
-        setFeedback("현재 비밀번호를 입력해주세요.");
-        return;
-      }
-      if (formData.newPwd.length < 8) {
-        setFeedback("새 비밀번호는 8자 이상이어야 합니다.");
-        return;
-      }
-      if (formData.newPwd !== formData.passwordConfirm) {
-        setFeedback("새 비밀번호가 일치하지 않습니다.");
-        return;
-      }
-      setSubmitting(true);
-      try {
-        const res = await updatePassword({
-          currentPwd: formData.currentPwd,
-          newPwd: formData.newPwd
-        });
-        
-        if (res.success) {
-          if (res.accessToken) {
-            const storage = sessionStorage.getItem("token") ? sessionStorage : localStorage;
-            storage.setItem("token", res.accessToken);
-          }
-          setFormData((value) => ({ ...value, currentPwd: "", newPwd: "", passwordConfirm: "" }));
-          setFeedback("비밀번호가 변경되었어요.");
-        } else {
-          setFeedback(res.message || "비밀번호 변경에 실패했습니다.");
-        }
-      } catch (err: unknown) {
-        console.error("Password update error:", err);
-        setFeedback(getErrorMessage(err, "비밀번호 변경 중 오류가 발생했습니다. 다시 시도해주세요."));
-      } finally {
-        setSubmitting(false);
-      }
-    } else {
-      setFeedback("변경할 비밀번호를 입력해주세요.");
+    setProfileSubmitting(true);
+    setProfileFeedback("");
+    try {
+      const result = await updateUserProfile({ name, phone: phone || null });
+      if (!result.success || !result.user) throw new Error(result.message || "회원 정보를 저장하지 못했어요.");
+      const user: User = result.user;
+      setUser(user);
+      setProfile({ name: user.name || "", email: user.email || "", phone: user.phone || "" });
+      setProfileFeedback("회원 정보가 저장되었어요.");
+    } catch (error) {
+      console.error("Profile update error:", error);
+      setProfileFeedback(getErrorMessage(error, "회원 정보를 저장하지 못했어요. 다시 시도해주세요."));
+    } finally {
+      setProfileSubmitting(false);
     }
   };
 
-  if (loading) return <div role="status" className="space-y-4 p-8"><div className="h-24 animate-pulse rounded-2xl bg-gray-100" /><div className="h-14 animate-pulse rounded-2xl bg-gray-100" /><div className="h-14 animate-pulse rounded-2xl bg-gray-100" /><span className="sr-only">회원 정보를 불러오는 중</span></div>;
-  if (loadError) return <div className="p-6"><p role="alert" className="mb-4 text-sm text-red-700">회원 정보를 불러오지 못했어요.</p><button type="button" onClick={() => setRetryCount((value) => value + 1)} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">다시 시도</button></div>;
+  const handlePasswordChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword((previous) => ({ ...previous, [event.target.name]: event.target.value }));
+    setPasswordFeedback("");
+  };
+
+  const handlePasswordSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (passwordSubmitting) return;
+    setPasswordFeedback("");
+    if (!password.currentPwd) {
+      setPasswordFeedback("현재 비밀번호를 입력해주세요.");
+      document.getElementById("profile-current-password")?.focus();
+      return;
+    }
+    if (password.newPwd.length < 8) {
+      setPasswordTouched(true);
+      setPasswordFeedback("새 비밀번호는 8자 이상이어야 합니다.");
+      document.getElementById("profile-new-password")?.focus();
+      return;
+    }
+    if (password.newPwd !== password.passwordConfirm) {
+      setPasswordFeedback("새 비밀번호가 일치하지 않습니다.");
+      document.getElementById("profile-confirm-password")?.focus();
+      return;
+    }
+
+    setPasswordSubmitting(true);
+    try {
+      const result = await updatePassword({ currentPwd: password.currentPwd, newPwd: password.newPwd });
+      if (!result.success) throw new Error(result.message || "비밀번호 변경에 실패했습니다.");
+      if (result.accessToken) {
+        const storage = sessionStorage.getItem("token") ? sessionStorage : localStorage;
+        storage.setItem("token", result.accessToken);
+      }
+      setPassword({ currentPwd: "", newPwd: "", passwordConfirm: "" });
+      setPasswordFeedback("비밀번호가 변경되었어요.");
+      setPasswordTouched(false);
+    } catch (error) {
+      console.error("Password update error:", error);
+      setPasswordFeedback(getErrorMessage(error, "비밀번호 변경 중 오류가 발생했습니다. 다시 시도해주세요."));
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
+
+  if (loading) return <div role="status" className="space-y-4 p-8"><span className="sr-only">회원 정보를 불러오는 중…</span><div aria-hidden="true" className="h-24 animate-pulse rounded-2xl bg-gray-100" /><div aria-hidden="true" className="h-14 animate-pulse rounded-2xl bg-gray-100" /><div aria-hidden="true" className="h-14 animate-pulse rounded-2xl bg-gray-100" /></div>;
+  if (loadError) return <div className="p-6"><p role="alert" className="mb-4 text-sm text-red-700">회원 정보를 불러오지 못했어요.</p><button type="button" onClick={() => setRetryCount((value) => value + 1)} className="min-h-11 rounded-xl bg-[#5b873a] px-5 font-bold text-white hover:bg-[#496d2f]">다시 시도</button></div>;
 
   return (
-    <div className="flex flex-col bg-gray-50 min-h-full">
-      {/* 헤더 */}
-      <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 bg-white border-b border-gray-100">
-        <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button text-gray-800 hover:text-black transition-colors -ml-2">
-          <ChevronLeft size={28} strokeWidth={2.5} />
+    <div className="flex min-h-full flex-col bg-gray-50">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5">
+        <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button -ml-2 text-gray-800 hover:text-black">
+          <ChevronLeft size={28} strokeWidth={2.5} aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-extrabold text-gray-800">회원 정보 수정</h1>
-        <div className="w-8"></div>
+        <h1 className="text-lg font-extrabold text-gray-800">회원 정보</h1>
+        <div aria-hidden="true" className="w-8" />
       </header>
 
-      {/* 폼 */}
-      <form onSubmit={handleSave} className="flex-1 flex flex-col px-6 pt-8 pb-10 overflow-y-auto hide-scrollbar">
-        <div className="flex justify-center mb-8">
-          <div className="relative">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-4xl border border-gray-200 shadow-sm">
-              🌱
+      <div className="flex-1 overflow-y-auto px-6 pb-10 pt-8">
+        <div aria-hidden="true" className="mb-8 flex justify-center">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full border border-gray-200 bg-white text-4xl shadow-sm">🌱</div>
+        </div>
+
+        <section aria-labelledby="profile-details-heading">
+          <h2 id="profile-details-heading" className="mb-4 text-base font-extrabold text-gray-900">기본 정보</h2>
+          <form onSubmit={handleProfileSave} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="profile-name" className="ml-1 text-sm font-bold text-gray-700">이름</label>
+              <input id="profile-name" type="text" name="name" value={profile.name} onChange={(event) => { setProfile((previous) => ({ ...previous, name: event.target.value })); setProfileFeedback(""); }} autoComplete="name" maxLength={80} required className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-[15px] font-medium shadow-sm focus:border-[#5b873a]" placeholder="예: 초록 정원사" />
             </div>
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-5 flex-1">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="profile-name" className="text-sm font-bold text-gray-700 ml-1">이름 (조회 전용)</label>
-            <input 
-              id="profile-name"
-              type="text" 
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              readOnly
-              autoComplete="name"
-              className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium focus:outline-none focus:border-[#6ea447] transition-colors shadow-sm"
-              placeholder="이름을 입력하세요"
-              required
-            />
-          </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="profile-email" className="ml-1 text-sm font-bold text-gray-700">이메일</label>
+              <input id="profile-email" type="email" name="email" value={profile.email} readOnly aria-describedby="profile-email-help" autoComplete="email" className="w-full rounded-2xl border border-gray-200 bg-gray-100 px-5 py-4 text-[15px] font-medium text-gray-600 shadow-sm" />
+              <p id="profile-email-help" className="ml-1 text-xs text-gray-500">이메일은 로그인 계정이라 변경할 수 없어요.</p>
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="profile-email" className="text-sm font-bold text-gray-700 ml-1">이메일 (변경 불가)</label>
-            <input 
-              id="profile-email"
-              type="email" 
-              name="email"
-              value={formData.email}
-              readOnly
-              className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium text-gray-500 shadow-sm"
-            />
-          </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="profile-phone" className="ml-1 text-sm font-bold text-gray-700">전화번호</label>
+              <input id="profile-phone" type="tel" name="phone" value={profile.phone} onChange={(event) => { setProfile((previous) => ({ ...previous, phone: event.target.value })); setProfileFeedback(""); }} autoComplete="tel" inputMode="tel" maxLength={30} className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-[15px] font-medium shadow-sm focus:border-[#5b873a]" placeholder="예: 010-1234-5678" />
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="profile-phone" className="text-sm font-bold text-gray-700 ml-1">전화번호 (조회 전용)</label>
-            <input 
-              id="profile-phone"
-              type="tel" 
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              readOnly
-              autoComplete="tel"
-              className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium focus:outline-none focus:border-[#6ea447] transition-colors shadow-sm"
-              placeholder="전화번호를 입력하세요"
-            />
-          </div>
+            {profileFeedback && <p role="status" aria-live="polite" className="text-sm font-semibold text-gray-700">{profileFeedback}</p>}
+            <button type="submit" disabled={profileSubmitting} className="min-h-12 w-full rounded-2xl bg-[#5b873a] py-4 text-base font-extrabold text-white shadow-sm hover:bg-[#496d2f] disabled:cursor-wait disabled:opacity-60">
+              {profileSubmitting ? "저장 중…" : "회원 정보 저장"}
+            </button>
+          </form>
+        </section>
 
-          <p className="text-xs text-gray-500">이름과 전화번호 수정은 아직 지원되지 않습니다.</p>
+        <section aria-labelledby="password-heading" className="mt-8 border-t border-gray-200 pt-7">
+          <h2 id="password-heading" className="mb-4 text-base font-extrabold text-gray-900">비밀번호 변경</h2>
+          <form onSubmit={handlePasswordSave} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="profile-current-password" className="text-sm font-bold text-gray-700">현재 비밀번호</label>
+              <input id="profile-current-password" type="password" autoComplete="current-password" name="currentPwd" value={password.currentPwd} onChange={handlePasswordChange} className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-[15px] font-medium shadow-sm focus:border-[#5b873a]" placeholder="현재 비밀번호를 입력하세요" />
+            </div>
 
-          <div className="w-full h-px bg-gray-200 my-4"></div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="profile-new-password" className="text-sm font-bold text-gray-700">새 비밀번호</label>
+              <input id="profile-new-password" type="password" autoComplete="new-password" name="newPwd" value={password.newPwd} onChange={handlePasswordChange} onBlur={() => setPasswordTouched(true)} minLength={8} aria-invalid={passwordTouched && Boolean(password.newPwd) && password.newPwd.length < 8} aria-describedby={passwordTouched && password.newPwd && password.newPwd.length < 8 ? "profile-password-help" : undefined} className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-[15px] font-medium shadow-sm focus:border-[#5b873a]" placeholder="새 비밀번호 (8자 이상)" />
+              {passwordTouched && password.newPwd && password.newPwd.length < 8 && <p id="profile-password-help" className="text-xs text-red-700">새 비밀번호는 8자 이상이어야 합니다.</p>}
+            </div>
 
-          <h3 className="text-sm font-extrabold text-gray-800 ml-1 mb-1">비밀번호 변경</h3>
-          
-          <div className="flex flex-col gap-2">
-            <label htmlFor="profile-current-password" className="text-sm font-bold text-gray-700">현재 비밀번호</label>
-            <input 
-              id="profile-current-password"
-              type="password" 
-              autoComplete="current-password"
-              name="currentPwd"
-              value={formData.currentPwd}
-              onChange={handleChange}
-              className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium focus:outline-none focus:border-[#6ea447] transition-colors shadow-sm"
-              placeholder="현재 비밀번호"
-            />
-          </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="profile-confirm-password" className="text-sm font-bold text-gray-700">새 비밀번호 확인</label>
+              <input id="profile-confirm-password" type="password" autoComplete="new-password" name="passwordConfirm" value={password.passwordConfirm} onChange={handlePasswordChange} aria-invalid={Boolean(password.newPwd && password.passwordConfirm && password.newPwd !== password.passwordConfirm)} aria-describedby={password.newPwd && password.passwordConfirm && password.newPwd !== password.passwordConfirm ? "profile-confirm-help" : undefined} className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 text-[15px] font-medium shadow-sm focus:border-[#5b873a]" placeholder="새 비밀번호를 한 번 더 입력하세요" />
+              {password.newPwd && password.passwordConfirm && password.newPwd !== password.passwordConfirm && <p id="profile-confirm-help" className="text-xs font-semibold text-red-700">새 비밀번호가 일치하지 않습니다.</p>}
+              {password.newPwd && password.passwordConfirm && password.newPwd === password.passwordConfirm && <p className="text-xs font-semibold text-[#496d2f]">새 비밀번호가 일치합니다.</p>}
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="profile-new-password" className="text-sm font-bold text-gray-700">새 비밀번호</label>
-            <input 
-              id="profile-new-password"
-              type="password" 
-              autoComplete="new-password"
-              name="newPwd"
-              value={formData.newPwd}
-              onChange={handleChange}
-              onBlur={() => setPasswordTouched(true)}
-              className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium focus:outline-none focus:border-[#6ea447] transition-colors shadow-sm"
-              placeholder="새 비밀번호 (8자 이상)"
-            />
-          </div>
-          {passwordTouched && formData.newPwd && formData.newPwd.length < 8 && <p className="text-xs text-red-600">새 비밀번호는 8자 이상이어야 합니다.</p>}
-
-          <div className="flex flex-col gap-2 mb-8">
-            <label htmlFor="profile-confirm-password" className="text-sm font-bold text-gray-700">새 비밀번호 확인</label>
-            <input 
-              id="profile-confirm-password"
-              type="password" 
-              autoComplete="new-password"
-              name="passwordConfirm"
-              value={formData.passwordConfirm}
-              onChange={handleChange}
-              className={`w-full bg-white border rounded-2xl px-5 py-4 text-[15px] font-medium focus:outline-none transition-colors shadow-sm ${
-                formData.newPwd && formData.passwordConfirm && formData.newPwd !== formData.passwordConfirm 
-                ? 'border-red-400 focus:border-red-500' 
-                : 'border-gray-200 focus:border-[#6ea447]'
-              }`}
-              placeholder="새 비밀번호 확인"
-            />
-            {formData.newPwd && formData.passwordConfirm && formData.newPwd !== formData.passwordConfirm && (
-              <span className="text-xs font-bold text-red-500 ml-2 mt-1">새 비밀번호가 일치하지 않습니다.</span>
-            )}
-            {formData.newPwd && formData.passwordConfirm && formData.newPwd === formData.passwordConfirm && (
-              <span className="text-xs font-bold text-[#6ea447] ml-2 mt-1">새 비밀번호가 일치합니다.</span>
-            )}
-          </div>
-        </div>
-
-        {feedback && <p role="status" aria-live="polite" className="mb-3 text-sm font-semibold text-gray-700">{feedback}</p>}
-        <button 
-          type="submit" 
-          disabled={submitting}
-          className="w-full bg-[#6ea447] hover:bg-[#5b873a] text-white font-extrabold py-4.5 rounded-2xl text-[16px] transition-colors shadow-sm active:scale-[0.98] mt-auto"
-        >
-          {submitting ? "변경 중…" : "비밀번호 변경하기"}
-        </button>
-      </form>
+            {passwordFeedback && <p role="status" aria-live="polite" className="text-sm font-semibold text-gray-700">{passwordFeedback}</p>}
+            <button type="submit" disabled={passwordSubmitting} className="min-h-12 w-full rounded-2xl bg-[#5b873a] py-4 text-base font-extrabold text-white shadow-sm hover:bg-[#496d2f] disabled:cursor-wait disabled:opacity-60">
+              {passwordSubmitting ? "변경 중…" : "비밀번호 변경하기"}
+            </button>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }

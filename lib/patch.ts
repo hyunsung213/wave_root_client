@@ -13,6 +13,11 @@ export async function updatePassword(data: { currentPwd: string; newPwd: string 
   return res.data;
 }
 
+export async function updateUserProfile(data: { name: string; phone: string | null }) {
+  const res = await api.patch("/api/web/users/me", data);
+  return res.data;
+}
+
 // 3. 식물 정보 수정 (이름 등)
 export async function updatePlant(plantId: string, data: Partial<Pick<Plant, "name" | "type">>) {
   const res = await api.patch(`/api/web/plants/${plantId}`, data);

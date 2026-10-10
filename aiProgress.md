@@ -2,6 +2,8 @@
 
 ## 2026-10-10
 
+- 2026-10-10 18:24:19 (+09:00) — 운영 프론트에 테스트 로그인해 주요 페이지·분양→상품 확인·1280×720 스트림을 점검하고, 센서 API가 현재 503임을 확인함. 프론트 UI/UX를 보완함: 프로필 이름/전화번호 PATCH 연동, 스트림 성장기록 이미지 캡처, 모달 배경 접근 차단, safe area·건너뛰기 링크, 알림/로딩 상태, pull-to-refresh 피드백, 센서 오류 버튼 겹침 수정. 320px/390px 브라우저 확인 및 로컬 production 빌드·ESLint·TypeScript 통과. 데이터 변경 요청은 실행하지 않았으며, 원격 배포 후 최종 교차검증 예정.
+- 2026-10-10 — `docs/mobile-ui-ux-review.md`에 스마트폰 UI/UX 코드 리뷰를 작성함. 반응형 셸, 인증·내비게이션, 시트, 비동기 상태, safe area 및 PWA/오프라인 범위를 근거 파일과 우선순위별 권장사항으로 정리함. 실기기·스크린리더·색상 대비 검증은 수행하지 않았음을 명시함.
 - 2026-10-10 15:51:27 (+09:00) — 운영 번들에서 `NEXT_PUBLIC_API_BASE_URL` 접근이 런타임 env 조회로 남는 것을 확인함. Vercel env 값 확인 권한이 없으므로 운영 빌드는 Render의 검증된 주소를 직접 고정하고 개발 환경에서만 env override를 허용하도록 보강함. `npm run lint`, `npm run build` 모두 다시 통과했으며 최종 운영 재배포를 진행함.
 - 2026-10-10 15:45:42 (+09:00) — 프론트 배포 전 연결 설정을 점검함. Vercel project `wave-root-client`의 기존 Production은 `main` 초기 커밋(`63c4033`)이고 실제 앱 코드는 `codex/frontend-preview-20261009` Preview에만 있음을 확인함. Vercel MCP env 조회·쓰기 모두 403, CLI도 없어서 프로젝트 env를 직접 변경할 수 없었음. production에서 NEXT_PUBLIC API 설정이 없거나 localhost이면 Render origin `https://wave-root-backend.onrender.com`으로 폴백하는 `lib/apiBaseUrl.ts`를 추가하고 Axios, Next image remotePatterns, MJPEG proxy에서 공통 사용하도록 변경함. 설정 없는 Production build의 client bundle에서 Render origin 포함을 확인하고 `npm run lint`, `npm run build` 통과. 백엔드 운영 CORS 차단을 고친 뒤 main Production 배포를 진행할 예정.
 - 2026-10-10 15:46:16 (+09:00) — Render backend `/health`, `/health/ready`가 모두 200이고, Vercel 운영 도메인의 CORS preflight가 204 및 `Access-Control-Allow-Origin`을 반환하는 것을 확인함. 보호된 `/api/web/plants`도 CORS 헤더가 붙은 401(`Bearer access token required`)을 반환해 브라우저-백엔드 경계가 통과함을 확인함. 이제 Vercel Production에 앱을 배포하고 배포 완료 여부 및 공개 페이지를 재검증할 예정.

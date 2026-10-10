@@ -183,7 +183,7 @@ export default function MarketPage() {
                        aria-invalid={Boolean(nameError)}
                        aria-describedby={nameError ? "market-plant-name-error" : undefined}
                       placeholder={`예: 우리집 ${selectedPlant.name}`}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-800 font-bold focus:outline-none focus:ring-2 focus:ring-[#6ea447] focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-800 font-bold focus:outline-none focus:ring-2 focus:ring-[#6ea447] focus:border-transparent transition-colors"
                     />
                      {nameError && <p id="market-plant-name-error" className="mt-2 text-xs text-red-700">{nameError}</p>}
                   </div>

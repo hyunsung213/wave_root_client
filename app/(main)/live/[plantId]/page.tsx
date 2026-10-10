@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
 import { useCallback, useEffect, useState } from "react";
-import { Droplets, Thermometer, Sprout, ChevronDown, Edit3, Sun, Leaf } from "lucide-react";
+import { Camera, Droplets, Thermometer, Sprout, ChevronDown, Edit3, Sun, Leaf, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -109,6 +109,15 @@ export default function LivePage() {
   const [recordSubmitting, setRecordSubmitting] = useState(false);
   const [recordError, setRecordError] = useState("");
   const [recordFeedback, setRecordFeedback] = useState("");
+  const [recordImage, setRecordImage] = useState<{ plantId: string; file: File; previewUrl: string } | null>(null);
+  const activeRecordImage = recordImage?.plantId === plantId ? recordImage : null;
+  const [imageCaptureLoading, setImageCaptureLoading] = useState(false);
+  const [imageCaptureFeedback, setImageCaptureFeedback] = useState("");
+
+  useEffect(() => {
+    const previewUrl = recordImage?.previewUrl;
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+  }, [recordImage]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setTodayMs(Date.now()));
@@ -189,6 +198,35 @@ export default function LivePage() {
     setIsRecordSheetOpen(false);
   };
 
+  const captureStreamFrame = async () => {
+    if (!streamUrl || videoStatus !== "ready" || imageCaptureLoading) return;
+    setImageCaptureLoading(true);
+    setImageCaptureFeedback("");
+    setRecordError("");
+    try {
+      const response = await fetch("/api/proxy-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: streamUrl }),
+        cache: "no-store",
+      });
+      if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().startsWith("image/jpeg")) {
+        throw new Error("Camera frame could not be captured");
+      }
+      const blob = await response.blob();
+      if (!blob.size || blob.size > 5 * 1024 * 1024) throw new Error("Camera frame size is not supported");
+
+      const file = new File([blob], `growth-${Date.now()}.jpg`, { type: "image/jpeg" });
+      setRecordImage({ plantId: plantId as string, file, previewUrl: URL.createObjectURL(file) });
+      setImageCaptureFeedback("현재 영상 화면을 기록 이미지로 준비했어요.");
+    } catch (error) {
+      console.error("Failed to capture a growth record image:", error);
+      setImageCaptureFeedback("영상 캡처에 실패했어요. 영상 연결 상태를 확인하고 다시 시도해주세요.");
+    } finally {
+      setImageCaptureLoading(false);
+    }
+  };
+
   const handleRecordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (recordSubmitting) return;
@@ -206,8 +244,7 @@ export default function LivePage() {
       formData.append("title", formattedTitle);
       formData.append("content", recordForm.desc || "내용 없음");
       formData.append("eventDate", new Date().toISOString());
-
-      // 데모 영상 프레임은 실제 성장 기록 이미지로 첨부하지 않는다.
+      if (activeRecordImage) formData.append("image", activeRecordImage.file);
       const responseData = await createEvent(formData);
 
       if (responseData.success) {
@@ -215,6 +252,8 @@ export default function LivePage() {
         setRecordFeedback("성장 일지가 저장되었어요.");
         closeSheet();
         setRecordForm({ title: "", type: "기타", desc: "" });
+        setRecordImage(null);
+        setImageCaptureFeedback("");
       } else {
         setRecordError(responseData.message || "기록을 저장하지 못했어요. 다시 시도해주세요.");
       }
@@ -418,8 +457,8 @@ export default function LivePage() {
           </div>
         </motion.div>
 
-        <div className="absolute left-5 right-5 top-[230px] z-20 flex justify-end">
-          {sensorStatus === "error" ? <button type="button" onClick={fetchCurrentSensor} className="min-h-11 rounded-xl bg-black/65 px-3 text-xs font-bold text-white">센서 갱신 실패 · 다시 시도</button> : sensorStatus === "loading" ? <p role="status" className="rounded-lg bg-black/55 px-3 py-2 text-xs text-white">센서 확인 중…</p> : sensorUpdatedAt ? <p className="rounded-lg bg-black/55 px-3 py-2 text-xs text-white">{sensorUpdatedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 갱신</p> : null}
+        <div className="absolute left-5 right-[170px] top-[222px] z-20 flex justify-start">
+          {sensorStatus === "error" ? <button type="button" onClick={fetchCurrentSensor} aria-label="센서 값을 가져오지 못했어요. 다시 시도" className="min-h-11 max-w-full rounded-xl bg-black/70 px-2.5 text-[10px] font-bold text-white">센서 다시 시도</button> : sensorStatus === "loading" ? <p role="status" className="rounded-lg bg-black/55 px-3 py-2 text-xs text-white">센서 확인 중…</p> : sensorUpdatedAt ? <p className="rounded-lg bg-black/55 px-3 py-2 text-xs text-white">{sensorUpdatedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 갱신</p> : null}
         </div>
 
         {/* ═══ Sensor Cards — Liquid Glass Grid ═══ */}
@@ -476,7 +515,7 @@ export default function LivePage() {
           <motion.button 
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            onClick={() => { setRecordError(""); setRecordFeedback(""); setIsRecordSheetOpen(true); }}
+            onClick={() => { setRecordError(""); setRecordFeedback(""); setImageCaptureFeedback(""); setIsRecordSheetOpen(true); }}
             className="flex flex-col items-center gap-1.5"
           >
             <div
@@ -536,7 +575,7 @@ export default function LivePage() {
                     <div className="relative">
                       <select 
                         id="record-type"
-                        className="w-full rounded-2xl px-5 py-3.5 text-[15px] font-medium focus:outline-none appearance-none transition-all cursor-pointer text-gray-800"
+                    className="w-full rounded-2xl px-5 py-3.5 text-[15px] font-medium appearance-none transition-colors cursor-pointer text-gray-800"
                         style={{
                           ...glass.input,
                           paddingRight: '40px',
@@ -559,7 +598,7 @@ export default function LivePage() {
                       id="record-title"
                       type="text" 
                       placeholder="어떤 일이 있었나요?" 
-                      className="w-full rounded-2xl px-5 py-3.5 text-[15px] font-medium focus:outline-none transition-all text-gray-800 placeholder:text-gray-400"
+                      className="w-full rounded-2xl px-5 py-3.5 text-[15px] font-medium transition-colors text-gray-800 placeholder:text-gray-400"
                       style={glass.input}
                       value={recordForm.title}
                       onChange={(e) => { setRecordForm({ ...recordForm, title: e.target.value }); setRecordError(""); }}
@@ -576,12 +615,44 @@ export default function LivePage() {
                     <textarea 
                       id="record-description"
                       placeholder="자세한 관찰 내용을 적어보세요." 
-                      className="w-full rounded-2xl px-5 py-3.5 text-[15px] font-medium h-28 resize-none focus:outline-none transition-all text-gray-800 placeholder:text-gray-400"
+                      className="w-full rounded-2xl px-5 py-3.5 text-[15px] font-medium h-28 resize-none transition-colors text-gray-800 placeholder:text-gray-400"
                       style={glass.input}
                       value={recordForm.desc}
                       onChange={(e) => setRecordForm({ ...recordForm, desc: e.target.value })}
                     />
                   </div>
+
+                  <section aria-labelledby="record-capture-heading" className="mb-2 rounded-2xl border border-white/70 bg-white/55 p-4 shadow-sm backdrop-blur-xl">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Camera size={17} aria-hidden="true" className="text-[#496d2f]" />
+                      <h3 id="record-capture-heading" className="text-sm font-extrabold text-gray-800">기록 이미지</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { void captureStreamFrame(); }}
+                      disabled={!streamUrl || videoStatus !== "ready" || imageCaptureLoading}
+                      aria-describedby="record-capture-help"
+                      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#496d2f] px-4 py-3 text-sm font-bold text-white hover:bg-[#3d5c27] disabled:cursor-not-allowed disabled:bg-gray-400"
+                    >
+                      <Camera size={17} aria-hidden="true" />
+                      {imageCaptureLoading ? "현재 화면 캡처 중…" : activeRecordImage ? "현재 화면 다시 캡처" : "현재 영상 화면 캡처"}
+                    </button>
+                    <p id="record-capture-help" className="mt-2 text-xs leading-relaxed text-gray-700">
+                      {streamUrl ? "캡처한 이미지는 성장 기록을 저장할 때 함께 첨부돼요." : "카메라 영상이 연결되면 화면을 캡처할 수 있어요."}
+                    </p>
+                    {imageCaptureFeedback && <p role="status" aria-live="polite" className="mt-2 text-xs font-semibold text-gray-700">{imageCaptureFeedback}</p>}
+                    {activeRecordImage && (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-black/5">
+                        <div className="flex items-center justify-between gap-3 bg-white/80 px-3 py-2">
+                          <p className="min-w-0 truncate text-xs font-semibold text-gray-700">캡처 미리보기</p>
+                          <button type="button" onClick={() => { setRecordImage(null); setImageCaptureFeedback("캡처 이미지를 삭제했어요."); }} aria-label="캡처 이미지 삭제" className="icon-button -mr-2 rounded-full text-gray-700 hover:bg-gray-100">
+                            <X size={18} aria-hidden="true" />
+                          </button>
+                        </div>
+                        <img src={activeRecordImage.previewUrl} alt="성장 기록에 첨부할 현재 영상 캡처" width={1280} height={720} className="block aspect-video w-full object-contain" />
+                      </div>
+                    )}
+                  </section>
 
                   <p className="text-xs text-gray-600">작성 중인 내용은 이 탭에 임시 저장됩니다.</p>
                   {recordError && <p id="record-error" role="alert" className="text-sm text-red-700">{recordError}</p>}
@@ -589,8 +660,8 @@ export default function LivePage() {
                   {/* Submit button — Liquid Glass accent */}
                   <button 
                     type="submit" 
-                    disabled={recordSubmitting}
-                    className="relative w-full overflow-hidden text-white font-extrabold py-4 rounded-2xl text-[15px] transition-all active:scale-[0.98]"
+                    disabled={recordSubmitting || imageCaptureLoading}
+                    className="relative w-full overflow-hidden text-white font-extrabold py-4 rounded-2xl text-[15px] transition-transform active:scale-[0.98]"
                     style={{
                       background: 'linear-gradient(135deg, rgba(110,164,71,0.85) 0%, rgba(80,160,60,0.7) 100%)',
                       backdropFilter: 'blur(40px) saturate(180%)',

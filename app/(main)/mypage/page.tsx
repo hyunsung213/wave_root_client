@@ -13,6 +13,7 @@ import { EmptyState, RequestError } from "@/components/ui/RequestState";
 import { useStore } from "@/store/useStore";
 import type { Plant, User } from "@/store/useStore";
 import { getErrorMessage } from "@/lib/errors";
+import PullToRefreshStatus from "@/components/ui/PullToRefreshStatus";
 import { usePullToRefresh } from "@/lib/usePullToRefresh";
 
 const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
@@ -36,7 +37,7 @@ export default function MyPage() {
   const [releasing, setReleasing] = useState(false);
   
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  usePullToRefresh(() => setRetryCount((value) => value + 1));
+  const pullState = usePullToRefresh(() => setRetryCount((value) => value + 1));
 
   const closeSheet = () => {
     setIsSheetOpen(false);
@@ -130,6 +131,7 @@ export default function MyPage() {
 
   return (
     <div className="flex flex-col bg-white min-h-full">
+      <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
       <header className="flex justify-between items-center px-6 pt-6 pb-4">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
@@ -205,7 +207,7 @@ export default function MyPage() {
                     <button type="button"
                       key={plant._id}
                       onClick={() => handlePlantClick(plant)}
-                      className={`snap-start min-w-[96px] h-[140px] rounded-[1.25rem] p-3 flex flex-col items-center justify-center cursor-pointer transition-all shrink-0
+                      className={`snap-start min-w-[96px] h-[140px] rounded-[1.25rem] p-3 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0
                         ${isActive
                           ? 'bg-white border-[1.5px] border-[#6ea447]'
                           : 'bg-white border border-gray-100'
@@ -299,7 +301,7 @@ export default function MyPage() {
                           <span className="text-[15px] font-extrabold text-[#6ea447]">{percent}%</span>
                         </div>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-[#6ea447] rounded-full transition-all" style={{ width: `${percent}%` }}></div>
+                          <div className="h-full bg-[#6ea447] rounded-full transition-[width]" style={{ width: `${percent}%` }}></div>
                         </div>
                         <p className="text-[11px] font-medium text-gray-400 mt-2">
                           평균 재배기간 {HARVEST_DAYS}일 기준
@@ -341,7 +343,7 @@ export default function MyPage() {
                           type="text"
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium text-gray-800 outline-none focus:border-[#6ea447] transition-colors shadow-sm mb-3"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-[15px] font-medium text-gray-800 focus:border-[#6ea447] transition-colors shadow-sm mb-3"
                           placeholder="예: 귀여운 토마토"
                         />
                         <button

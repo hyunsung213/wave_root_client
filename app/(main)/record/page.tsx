@@ -9,6 +9,7 @@ import { getEvents, getPlantsWithRecords } from "@/lib/get";
 import { getGrowth } from "@/lib/growth";
 import { useStore, type Plant } from "@/store/useStore";
 import { EmptyState, RequestError } from "@/components/ui/RequestState";
+import PullToRefreshStatus from "@/components/ui/PullToRefreshStatus";
 import { usePullToRefresh } from "@/lib/usePullToRefresh";
 
 const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
@@ -50,7 +51,7 @@ export default function RecordPage() {
   // Modal States
   const [selectedEvent, setSelectedEvent] = useState<GrowthEvent | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  usePullToRefresh(() => setRetryCount((value) => value + 1));
+  const pullState = usePullToRefresh(() => setRetryCount((value) => value + 1));
 
   const openSheet = (event: GrowthEvent) => {
     setSelectedEvent(event);
@@ -157,22 +158,26 @@ export default function RecordPage() {
     return `${mm}.${dd} ${ampm} ${hh}:${min}`;
   };
 
-  const renderSkeleton = () => (
-    <div className="flex flex-col gap-5 animate-pulse mt-2">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex gap-4">
-          <div className="w-14 h-14 bg-gray-100 rounded-2xl shrink-0"></div>
-          <div className="flex-1 flex flex-col justify-center gap-2">
-            <div className="h-3 w-20 bg-gray-100 rounded-full"></div>
-            <div className="h-2.5 w-32 bg-gray-50 rounded-full"></div>
+  const renderSkeleton = (label: string) => (
+    <div role="status" aria-label={label} className="mt-2">
+      <span className="sr-only">{label}…</span>
+      <div aria-hidden="true" className="flex animate-pulse flex-col gap-5">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex gap-4">
+            <div className="h-14 w-14 shrink-0 rounded-2xl bg-gray-100"></div>
+            <div className="flex flex-1 flex-col justify-center gap-2">
+              <div className="h-3 w-20 rounded-full bg-gray-100"></div>
+              <div className="h-2.5 w-32 rounded-full bg-gray-50"></div>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 
   return (
     <div className="flex flex-col bg-white min-h-full">
+      <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
       <header className="flex justify-between items-center px-6 pt-6 pb-4">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
@@ -188,7 +193,7 @@ export default function RecordPage() {
       </header>
 
       <div className="px-6 flex flex-col gap-5">
-        {plantsError ? <RequestError onRetry={() => setRetryCount((value) => value + 1)} /> : plantsLoading ? renderSkeleton() : plantsList.length === 0 ? (
+        {plantsError ? <RequestError onRetry={() => setRetryCount((value) => value + 1)} /> : plantsLoading ? renderSkeleton("식물 목록을 불러오는 중") : plantsList.length === 0 ? (
           <EmptyState message="아직 기록할 식물이 없어요." action={<button type="button" onClick={() => router.push('/market')} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">식물 둘러보기</button>} />
         ) : <>
         {/* 식물 캐러셀 */}
@@ -246,7 +251,7 @@ export default function RecordPage() {
               {plantsList.map((_, i) => (
                 <div 
                   key={i} 
-                  className={`rounded-full transition-all ${i === activeIndex ? "w-4 h-1.5 bg-[#6ea447]" : "w-1.5 h-1.5 bg-gray-200"}`}
+                  className={`rounded-full transition-[width,background-color] ${i === activeIndex ? "w-4 h-1.5 bg-[#6ea447]" : "w-1.5 h-1.5 bg-gray-200"}`}
                 />
               ))}
             </div>
@@ -255,7 +260,7 @@ export default function RecordPage() {
 
         {/* 타임라인 */}
         <section>
-          {loading ? renderSkeleton() : historyError ? <RequestError message="성장 기록을 불러오지 못했어요." onRetry={() => setRetryCount((value) => value + 1)} /> : (
+          {loading ? renderSkeleton("성장 기록을 불러오는 중") : historyError ? <RequestError message="성장 기록을 불러오지 못했어요." onRetry={() => setRetryCount((value) => value + 1)} /> : (
             <div className="relative pl-7">
               {/* 세로 타임라인 선 - 기록이 있을 때만 표시 */}
               {eventsHistory.length > 0 && (

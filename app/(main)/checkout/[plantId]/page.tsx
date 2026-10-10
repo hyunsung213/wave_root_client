@@ -16,15 +16,15 @@ export default function CheckoutPage() {
 
   if (!plant) {
     return (
-      <main className="flex min-h-full flex-col items-center justify-center gap-5 bg-white px-6 text-center">
+      <div className="flex min-h-full flex-col items-center justify-center gap-5 bg-white px-6 text-center">
         <h1 className="text-lg font-bold text-gray-900">선택한 식물을 찾을 수 없어요.</h1>
         <button type="button" onClick={() => router.push("/market")} className="min-h-11 rounded-xl bg-[#6ea447] px-6 font-bold text-white">분양 목록으로 이동</button>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-full bg-white px-6 pb-24">
+    <div className="min-h-full bg-white px-6 pb-24">
       <header className="flex items-center gap-2 py-5">
         <button type="button" aria-label="분양 목록으로 돌아가기" onClick={() => router.push("/market")} className="icon-button -ml-2 rounded-full text-gray-800 hover:bg-gray-100">
           <ChevronLeft size={26} />
@@ -59,6 +59,6 @@ export default function CheckoutPage() {
       </section>
 
       <button type="button" onClick={() => router.push("/market")} className="mt-6 min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white">다른 식물 둘러보기</button>
-    </main>
+    </div>
   );
 }

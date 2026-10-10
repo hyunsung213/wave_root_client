@@ -9,6 +9,7 @@ import { getGrowth } from "@/lib/growth";
 import { useStore, type Plant } from "@/store/useStore";
 import { soilMoisturePercent } from "@/lib/sensors";
 import { EmptyState, RequestError } from "@/components/ui/RequestState";
+import PullToRefreshStatus from "@/components/ui/PullToRefreshStatus";
 import { usePullToRefresh } from "@/lib/usePullToRefresh";
 
 export default function HomePage() {
@@ -25,7 +26,7 @@ export default function HomePage() {
   const [retryCount, setRetryCount] = useState(0);
   // 서버 렌더 시점과 시간대가 달라질 수 있어 마운트 후에 인사말을 정한다.
   const [greeting, setGreeting] = useState("반가워요");
-  usePullToRefresh(() => setRetryCount((value) => value + 1));
+  const pullState = usePullToRefresh(() => setRetryCount((value) => value + 1));
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -89,6 +90,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col bg-white min-h-full">
+      <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
       <header className="flex justify-between items-center px-6 pt-6 pb-4">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
@@ -202,7 +204,7 @@ export default function HomePage() {
                   <button type="button"
                     key={plant._id} 
                     onClick={() => router.push(`/live/${plant._id}`)}
-                    className={`snap-start min-w-[100px] h-[148px] rounded-[1.5rem] p-4 flex flex-col items-center justify-center cursor-pointer transition-all shrink-0 shadow-sm
+                    className={`snap-start min-w-[100px] h-[148px] rounded-[1.5rem] p-4 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 shadow-sm
                       ${isActive
                         ? 'bg-white border-[1.5px] border-[#6ea447]'
                         : 'bg-white border border-gray-100'

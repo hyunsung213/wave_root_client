@@ -108,7 +108,7 @@ export default function LoginPage() {
             aria-invalid={emailInvalid}
             aria-describedby={emailInvalid ? "login-email-error" : undefined}
             placeholder="이메일 주소를 입력해주세요" 
-          className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:outline-none focus:border-[#6ea447] transition-colors text-sm font-medium"
+          className="w-full pl-12 pr-4 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:border-[#6ea447] transition-colors text-sm font-medium"
             required
           />
         </div>
@@ -128,7 +128,7 @@ export default function LoginPage() {
             aria-invalid={passwordInvalid}
             aria-describedby={passwordInvalid ? "login-password-error" : undefined}
             placeholder="비밀번호를 입력해주세요" 
-          className="w-full pl-12 pr-12 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:outline-none focus:border-[#6ea447] transition-colors text-sm font-medium"
+          className="w-full pl-12 pr-12 py-4 rounded-2xl bg-[#f8f9ef] border border-[#e2ecc8] focus:border-[#6ea447] transition-colors text-sm font-medium"
             required
           />
           <button 
