@@ -1,6 +1,13 @@
 # AI 작업 기록
 
+## 2026-10-10
+
+- 2026-10-10 15:45:42 (+09:00) — 프론트 배포 전 연결 설정을 점검함. Vercel project `wave-root-client`의 기존 Production은 `main` 초기 커밋(`63c4033`)이고 실제 앱 코드는 `codex/frontend-preview-20261009` Preview에만 있음을 확인함. Vercel MCP env 조회·쓰기 모두 403, CLI도 없어서 프로젝트 env를 직접 변경할 수 없었음. production에서 NEXT_PUBLIC API 설정이 없거나 localhost이면 Render origin `https://wave-root-backend.onrender.com`으로 폴백하는 `lib/apiBaseUrl.ts`를 추가하고 Axios, Next image remotePatterns, MJPEG proxy에서 공통 사용하도록 변경함. 설정 없는 Production build의 client bundle에서 Render origin 포함을 확인하고 `npm run lint`, `npm run build` 통과. 백엔드 운영 CORS 차단을 고친 뒤 main Production 배포를 진행할 예정.
+- 2026-10-10 15:46:16 (+09:00) — Render backend `/health`, `/health/ready`가 모두 200이고, Vercel 운영 도메인의 CORS preflight가 204 및 `Access-Control-Allow-Origin`을 반환하는 것을 확인함. 보호된 `/api/web/plants`도 CORS 헤더가 붙은 401(`Bearer access token required`)을 반환해 브라우저-백엔드 경계가 통과함을 확인함. 이제 Vercel Production에 앱을 배포하고 배포 완료 여부 및 공개 페이지를 재검증할 예정.
+
 ## 2026-10-09
+
+- 2026-10-09 01:40:41 (+09:00) — 전체 스택 점검에서 ESLint와 Next.js production build 통과. Vercel Preview `/`, `/login`은 HTTP 200이나 실제 배포 JS에 API 기본값 `http://localhost:5000`이 포함되어 Vercel 원격 사용자의 백엔드 연결은 실패하는 상태로 확인함. Render 서비스 URL 부재와 Vercel 환경변수 조회 권한 403 때문에 올바른 `NEXT_PUBLIC_API_BASE_URL` 설정 및 Production 재배포는 보류함. 브라우저 API 로그인/센서/스트림 end-to-end는 아직 완료되지 않음.
 
 - 2026-10-09 00:51:25 (+09:00) — `wave-root-client` 프론트 변경분을 `codex/frontend-preview-20261009` 브랜치(커밋 `9708052`)로 Vercel Preview 배포함. 배포 `READY`; 보호된 Preview URL에서 `/`, `/login`, `/manifest.webmanifest`가 모두 HTTP 200이고 앱 타이틀/manifest를 확인함. Production `main` 도메인은 변경하지 않음. Vercel env 열람은 403 권한 오류이며 Render origin이 없어 로그인·센서·영상의 백엔드 연동은 아직 검증/설정 불가.
 

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { apiBaseUrl } from '@/lib/apiBaseUrl';
 
 // MJPEG는 끝나지 않는 스트림이라, Next가 정적/캐시로 취급해 응답을 끝까지
 // 버퍼링해버리면 화면에 아무것도 안 뜬다. force-dynamic + no-store로 고정.
@@ -18,8 +19,7 @@ export async function GET(request: NextRequest) {
     return new Response('Invalid stream URL', { status: 400 });
   }
 
-  const configuredApiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000';
-  const expectedOrigin = new URL(configuredApiBase).origin;
+  const expectedOrigin = new URL(apiBaseUrl).origin;
   const isPlantStream = /^\/api\/web\/plants\/stream\/[A-Za-z0-9._~-]+$/.test(target.pathname);
   if (target.origin !== expectedOrigin || !isPlantStream || target.search || target.hash ||
       target.username || target.password) {

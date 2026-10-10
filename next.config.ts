@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+import { apiBaseUrl } from "./lib/apiBaseUrl";
 
-const apiImageOrigin = new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000");
-const publicImageOrigin = new URL(process.env.NEXT_PUBLIC_IMAGE_BASE_URL ?? apiImageOrigin.href);
+const apiImageOrigin = new URL(apiBaseUrl);
+const publicImageOrigin = new URL(process.env.NEXT_PUBLIC_IMAGE_BASE_URL ?? apiBaseUrl);
 const imageOrigins = Array.from(new Map([apiImageOrigin, publicImageOrigin].map((url) => [url.origin, url])).values());
 
 const nextConfig: NextConfig = {
