@@ -139,6 +139,8 @@ export default function MarketPage() {
       {selectedPlant && <BottomSheet
         open={isSheetOpen}
         onClose={closeSheet}
+        title={selectedPlant.name}
+        description="식물 정보를 확인하고 이름을 정해주세요."
         halfY={280}
         footer={
           <button
