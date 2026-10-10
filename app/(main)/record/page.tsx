@@ -259,45 +259,42 @@ export default function RecordPage() {
         </section>
 
         {/* 타임라인 */}
-        <section>
+        <section className="mx-auto w-full max-w-xl">
           {loading ? renderSkeleton("성장 기록을 불러오는 중") : historyError ? <RequestError message="성장 기록을 불러오지 못했어요." onRetry={() => setRetryCount((value) => value + 1)} /> : (
-            <div className="relative pl-7">
-              {/* 세로 타임라인 선 - 기록이 있을 때만 표시 */}
-              {eventsHistory.length > 0 && (
-                <div className="absolute left-[11px] top-4 bottom-4 w-[2px] bg-gray-200 rounded-full"></div>
-              )}
-
-              <div className="flex flex-col gap-7">
-                {eventsHistory.length === 0 ? (
-                  <div className="bg-white border border-gray-100 rounded-[1.25rem] py-8 text-center -ml-7 shadow-sm">
+            <div>
+              {eventsHistory.length === 0 ? (
+                  <div className="w-full rounded-2xl border border-gray-100 bg-white px-4 py-9 text-center shadow-sm">
                     <p className="text-sm font-bold text-gray-400">아직 성장 일지가 없어요 🌱</p>
                   </div>
                 ) : (
-                  eventsHistory.map((event, idx) => {
+                  <div className="relative">
+                    <div aria-hidden="true" className="absolute bottom-5 left-[13px] top-5 w-0.5 rounded-full bg-gray-200" />
+                    <ol className="flex flex-col gap-4">
+                      {eventsHistory.map((event, idx) => {
                       let emoji = "📝";
-                      let iconBgColor = "bg-orange-50";
-                      let iconBorderColor = "border-orange-100";
-                      let dotColor = idx === 0 ? "bg-orange-400" : "bg-gray-300";
-                      let titleColor = "text-orange-500";
+                      const iconBgColor = "bg-[#f2f7ed]";
+                      const iconBorderColor = "border-[#e4eedb]";
+                      const dotColor = idx === 0 ? "bg-[#6ea447]" : "bg-gray-300";
+                      const titleColor = "text-gray-800";
 
                       if (event.title?.includes("싹")) {
-                        emoji = "🌱"; iconBgColor = "bg-[#eef7e6]"; iconBorderColor = "border-gray-100"; titleColor = "text-[#6ea447]";
-                        if (idx === 0) dotColor = "bg-[#6ea447]";
+                        emoji = "🌱";
                       } else if (event.title?.includes("열매")) {
-                        emoji = "🍎"; iconBgColor = "bg-red-50"; iconBorderColor = "border-red-100"; titleColor = "text-red-500";
-                        if (idx === 0) dotColor = "bg-red-400";
+                        emoji = "🍅";
                       }
 
                       return (
-                        <div key={event._id || idx} className="relative">
-                          <div className={`absolute -left-[22px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-sm ${dotColor}`}></div>
+                        <li key={event._id || idx} className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)] gap-3">
+                          <div className="relative">
+                            <span className={`absolute left-[7px] top-5 z-10 h-3.5 w-3.5 rounded-full border-[3px] border-white shadow-sm ring-1 ring-gray-200 ${dotColor}`} />
+                          </div>
                           <button type="button"
-                            className="bg-white border border-gray-100 rounded-[1.25rem] p-4 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+                            className="w-full min-w-0 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:bg-[#fafcf8]"
                             onClick={() => openSheet(event)}
                           >
-                            <div className="flex items-start gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
                               {event.imageUrl ? (
-                                <div className="w-12 h-12 relative rounded-xl overflow-hidden shrink-0 border border-gray-100 shadow-sm">
+                                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-100 shadow-sm">
                                   <Image 
                                     src={event.imageUrl} 
                                     alt="기록 이미지" 
@@ -306,24 +303,25 @@ export default function RecordPage() {
                                   />
                                 </div>
                               ) : (
-                                <div className={`w-12 h-12 ${iconBgColor} rounded-xl flex items-center justify-center text-2xl shrink-0 border ${iconBorderColor}`}>
+                                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-2xl ${iconBgColor} ${iconBorderColor}`}>
                                   {emoji}
                                 </div>
                               )}
-                              <div className="flex-1 min-w-0">
-                                <h4 className={`font-extrabold text-sm mb-0.5 truncate ${titleColor}`}>{event.title}</h4>
-                                <p className="text-[12px] font-medium text-gray-600 mb-1 truncate">{event.content}</p>
+                              <div className="min-w-0 flex-1">
+                                <h4 className={`mb-1 line-clamp-1 break-words text-sm font-extrabold ${titleColor}`}>{event.title}</h4>
+                                <p className="mb-1 line-clamp-2 break-words text-[12px] font-medium leading-relaxed text-gray-600">{event.content}</p>
                                 <p className="text-[11px] font-medium text-gray-400">
                                   {isMounted ? formatDate(event.eventDate || event.createdAt) : ""}
                                 </p>
                               </div>
                             </div>
                           </button>
-                        </div>
+                        </li>
                       );
-                  })
+                      })}
+                    </ol>
+                  </div>
                 )}
-              </div>
             </div>
           )}
           {!loading && !historyError && hasMore && <button type="button" onClick={loadMore} disabled={loadingMore} className="mt-4 min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">{loadingMore ? "불러오는 중…" : "기록 더 보기"}</button>}
