@@ -179,7 +179,7 @@ export default function RecordPage() {
     <div className="flex flex-col bg-white min-h-full">
       <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
-      <header className="flex justify-between items-center px-6 pt-6 pb-4">
+      <header className="app-page-header flex items-center justify-between">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
         <div className="flex gap-3 text-gray-500">
           <button type="button" aria-label="새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button"><RefreshCw size={20} /></button>
@@ -192,7 +192,7 @@ export default function RecordPage() {
         </div>
       </header>
 
-      <div className="px-6 flex flex-col gap-5">
+      <div className="app-page-content flex flex-col gap-5">
         {plantsError ? <RequestError onRetry={() => setRetryCount((value) => value + 1)} /> : plantsLoading ? renderSkeleton("식물 목록을 불러오는 중") : plantsList.length === 0 ? (
           <EmptyState message="아직 기록할 식물이 없어요." action={<button type="button" onClick={() => router.push('/market')} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">식물 둘러보기</button>} />
         ) : <>
@@ -366,7 +366,7 @@ export default function RecordPage() {
                           )}
                           <div className="flex-1 min-w-0">
                             <h4 className={`font-extrabold text-[17px] mb-1.5 leading-tight ${titleColor}`}>{selectedEvent.title}</h4>
-                            <p className="text-[13px] font-medium text-gray-400">
+                            <p className="text-xs font-medium text-gray-400">
                               {isMounted ? formatDate(selectedEvent.eventDate || selectedEvent.createdAt) : ""}
                             </p>
                           </div>
@@ -376,7 +376,7 @@ export default function RecordPage() {
                   </div>
 
                   <div className="bg-gray-50 rounded-2xl p-5 mb-6 border border-gray-100">
-                    <p className="text-[15px] font-medium text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-gray-800">
                       {selectedEvent.content}
                     </p>
                   </div>

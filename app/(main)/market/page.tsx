@@ -53,8 +53,8 @@ export default function MarketPage() {
 
   return (
     <>
-      <div className="flex flex-col p-6 bg-white min-h-full">
-        <header className="flex justify-between items-center mb-6">
+      <div className="app-page-content flex min-h-full flex-col bg-white pb-6 pt-6">
+        <header className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
           </div>
@@ -145,7 +145,7 @@ export default function MarketPage() {
         footer={
           <button
             onClick={goToCheckout}
-            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-lg shadow-xl hover:bg-gray-800 transition-colors active:scale-[0.98]"
+            className="w-full rounded-2xl bg-gray-900 py-4 text-base font-bold text-white shadow-xl transition-colors hover:bg-gray-800 active:scale-[0.98]"
           >
             상품 확인하기
           </button>
@@ -165,8 +165,8 @@ export default function MarketPage() {
                   </div>
                   
                   <div className="mb-5 flex justify-between items-center gap-3">
-                    <h2 className="text-[26px] font-extrabold text-gray-900 truncate">{selectedPlant.name}</h2>
-                    <p className="text-2xl font-extrabold text-[#6ea447] shrink-0">
+                    <h2 className="truncate text-[22px] font-extrabold text-gray-900">{selectedPlant.name}</h2>
+                    <p className="shrink-0 text-[22px] font-extrabold text-[#6ea447]">
                       {selectedPlant.price.toLocaleString()}원
                     </p>
                   </div>
@@ -200,7 +200,7 @@ export default function MarketPage() {
                     <div className="h-px bg-gray-200"></div>
                     <div>
                       <h4 className="text-sm font-bold text-gray-500 mb-2">식물 특징</h4>
-                      <p className="text-[15px] font-medium text-gray-800 leading-relaxed">
+                      <p className="text-sm font-medium leading-relaxed text-gray-800">
                         {selectedPlant.characteristics}
                       </p>
                     </div>

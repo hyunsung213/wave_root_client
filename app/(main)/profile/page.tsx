@@ -128,21 +128,21 @@ export default function ProfileEditPage() {
 
   return (
     <div className="flex min-h-full flex-col bg-gray-50">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-5">
+      <header className="app-page-header sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white">
         <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button -ml-2 text-gray-800 hover:text-black">
           <ChevronLeft size={28} strokeWidth={2.5} aria-hidden="true" />
         </button>
-        <h1 className="text-lg font-extrabold text-gray-800">회원 정보</h1>
+        <h1 className="app-page-title text-gray-800">회원 정보</h1>
         <div aria-hidden="true" className="w-8" />
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 pb-10 pt-8">
+      <div className="app-page-content flex-1 overflow-y-auto pb-10 pt-6">
         <div aria-hidden="true" className="mb-8 flex justify-center">
           <div className="flex h-24 w-24 items-center justify-center rounded-full border border-gray-200 bg-white text-4xl shadow-sm">🌱</div>
         </div>
 
         <section aria-labelledby="profile-details-heading">
-          <h2 id="profile-details-heading" className="mb-4 text-base font-extrabold text-gray-900">기본 정보</h2>
+          <h2 id="profile-details-heading" className="app-section-title mb-4 text-gray-900">기본 정보</h2>
           <form onSubmit={handleProfileSave} className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <label htmlFor="profile-name" className="ml-1 text-sm font-bold text-gray-700">이름</label>
@@ -168,7 +168,7 @@ export default function ProfileEditPage() {
         </section>
 
         <section aria-labelledby="password-heading" className="mt-8 border-t border-gray-200 pt-7">
-          <h2 id="password-heading" className="mb-4 text-base font-extrabold text-gray-900">비밀번호 변경</h2>
+          <h2 id="password-heading" className="app-section-title mb-4 text-gray-900">비밀번호 변경</h2>
           <form onSubmit={handlePasswordSave} className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <label htmlFor="profile-current-password" className="text-sm font-bold text-gray-700">현재 비밀번호</label>

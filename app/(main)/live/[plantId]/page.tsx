@@ -252,7 +252,7 @@ export default function LivePage() {
 
         {/* 센서값 및 연결 상태 배너는 표시하지 않습니다. */}
         {/* ═══ TOP: compact plant name ═══ */}
-        <div className="relative z-20 flex justify-center pt-12 px-6">
+        <div className="relative z-20 flex justify-center px-6 pt-6">
           <motion.div 
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -260,7 +260,7 @@ export default function LivePage() {
             className="flex flex-col items-center"
           >
             <div className="max-w-full rounded-full border border-white/80 bg-white/95 px-3.5 py-1.5 shadow-lg backdrop-blur-sm">
-              <h2 className="max-w-[70vw] truncate text-[10px] font-extrabold tracking-tight text-[#496d2f]">
+              <h2 className="max-w-[70vw] truncate text-xs font-extrabold tracking-tight text-[#496d2f]">
                 {plant.name}
               </h2>
             </div>
@@ -272,7 +272,7 @@ export default function LivePage() {
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="absolute bottom-12 left-0 right-0 z-20 flex justify-center"
+          className="absolute bottom-6 left-0 right-0 z-20 flex justify-center"
         >
           {/* Record Button */}
           <motion.button 
@@ -285,7 +285,7 @@ export default function LivePage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/80 bg-[#eef7e6] text-[#496d2f] shadow-lg">
               <Edit3 size={22} strokeWidth={2.2} aria-hidden="true" />
             </div>
-            <span className="text-[10px] font-bold tracking-wide text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]">
+            <span className="text-xs font-bold tracking-wide text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]">
               기록
             </span>
           </motion.button>
@@ -294,7 +294,7 @@ export default function LivePage() {
 
         {/* 현재 식물 주변 최대 3개까지 가운데 정렬해 표시합니다. */}
         {myPlants && myPlants.length > 1 && (
-          <div role="group" aria-label="식물 전환" className="absolute bottom-[152px] left-0 right-0 z-20 flex justify-center gap-4">
+          <div role="group" aria-label="식물 전환" className="absolute bottom-[128px] left-0 right-0 z-20 flex justify-center gap-4">
             {visiblePlants.map((p: Plant) => (
               <button type="button"
                 key={p._id}
@@ -319,11 +319,11 @@ export default function LivePage() {
                 <form onSubmit={handleRecordSubmit} className="flex flex-col gap-4 pb-8">
                   {/* Category select */}
                   <div className="flex flex-col gap-2">
-                    <label htmlFor="record-type" className="text-[13px] font-bold text-gray-600 ml-1">분류</label>
+                    <label htmlFor="record-type" className="ml-1 text-sm font-bold text-gray-600">분류</label>
                     <div className="relative">
                       <select 
                         id="record-type"
-                        className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-[15px] font-medium text-gray-800 transition-colors focus:border-[#6ea447] focus:outline-none focus:ring-2 focus:ring-[#6ea447]/20"
+                        className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-10 text-base font-medium text-gray-800 transition-colors focus:border-[#6ea447] focus:outline-none focus:ring-2 focus:ring-[#6ea447]/20"
                         value={recordForm.type}
                         onChange={(e) => setRecordForm({ ...recordForm, type: e.target.value })}
                       >
@@ -337,12 +337,12 @@ export default function LivePage() {
 
                   {/* Title input */}
                   <div className="flex flex-col gap-2">
-                    <label htmlFor="record-title" className="text-[13px] font-bold text-gray-600 ml-1">제목</label>
+                    <label htmlFor="record-title" className="ml-1 text-sm font-bold text-gray-600">제목</label>
                     <input 
                       id="record-title"
                       type="text" 
                       placeholder="어떤 일이 있었나요?" 
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] font-medium text-gray-800 placeholder:text-gray-400 transition-colors focus:border-[#6ea447] focus:outline-none focus:ring-2 focus:ring-[#6ea447]/20"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base font-medium text-gray-800 placeholder:text-gray-400 transition-colors focus:border-[#6ea447] focus:outline-none focus:ring-2 focus:ring-[#6ea447]/20"
                       value={recordForm.title}
                       onChange={(e) => { setRecordForm({ ...recordForm, title: e.target.value }); setRecordError(""); }}
                       onBlur={() => { if (!recordForm.title.trim()) setRecordError("제목을 입력해주세요."); }}
@@ -354,11 +354,11 @@ export default function LivePage() {
 
                   {/* Description textarea */}
                   <div className="flex flex-col gap-2 mb-2">
-                    <label htmlFor="record-description" className="text-[13px] font-bold text-gray-600 ml-1">내용</label>
+                    <label htmlFor="record-description" className="ml-1 text-sm font-bold text-gray-600">내용</label>
                     <textarea 
                       id="record-description"
                       placeholder="자세한 관찰 내용을 적어보세요." 
-                      className="h-28 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] font-medium text-gray-800 placeholder:text-gray-400 transition-colors focus:border-[#6ea447] focus:outline-none focus:ring-2 focus:ring-[#6ea447]/20"
+                      className="h-28 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base font-medium text-gray-800 placeholder:text-gray-400 transition-colors focus:border-[#6ea447] focus:outline-none focus:ring-2 focus:ring-[#6ea447]/20"
                       value={recordForm.desc}
                       onChange={(e) => setRecordForm({ ...recordForm, desc: e.target.value })}
                     />
@@ -403,7 +403,7 @@ export default function LivePage() {
                   <button 
                     type="submit" 
                     disabled={recordSubmitting || imageCaptureLoading}
-                    className="min-h-12 w-full rounded-xl bg-[#6ea447] py-3 text-[15px] font-extrabold text-white shadow-sm transition-colors hover:bg-[#5b8d3b] disabled:cursor-not-allowed disabled:bg-gray-300"
+                    className="min-h-12 w-full rounded-xl bg-[#6ea447] py-3 text-base font-extrabold text-white shadow-sm transition-colors hover:bg-[#5b8d3b] disabled:cursor-not-allowed disabled:bg-gray-300"
                   >
                     {recordSubmitting ? "저장 중…" : "저장하기"}
                   </button>

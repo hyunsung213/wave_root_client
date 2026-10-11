@@ -8,6 +8,64 @@
   --color-sprout-900: #1b5e20;
 }
 
+:root {
+  --app-gutter: 1.5rem;
+  --app-title-size: 1.25rem;
+  --app-section-size: 1.0625rem;
+  --app-body-size: 0.875rem;
+  --app-caption-size: 0.75rem;
+}
+
+.app-page-header {
+  padding: 1.5rem var(--app-gutter) 1rem;
+}
+
+.app-page-content {
+  padding-right: var(--app-gutter);
+  padding-left: var(--app-gutter);
+}
+
+.app-auth-content {
+  padding: 1.5rem var(--app-gutter);
+}
+
+.app-sheet-gutter {
+  padding-right: var(--app-gutter);
+  padding-left: var(--app-gutter);
+}
+
+.app-sheet-gutter input:not([type="checkbox"]),
+.app-sheet-gutter select,
+.app-sheet-gutter textarea,
+.app-auth-content input:not([type="checkbox"]),
+.app-page-content input:not([type="checkbox"]) {
+  font-size: 1rem;
+}
+
+.app-page-title {
+  font-size: var(--app-title-size);
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.app-section-title {
+  font-size: var(--app-section-size);
+  line-height: 1.4;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.app-body-text {
+  font-size: var(--app-body-size);
+  line-height: 1.5;
+}
+
+.app-caption-text {
+  font-size: var(--app-caption-size);
+  line-height: 1.5;
+}
+
 html {
   color-scheme: light;
   max-width: 100%;

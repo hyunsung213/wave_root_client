@@ -62,7 +62,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex flex-col items-center p-8 h-full bg-white overflow-y-auto">
+    <div className="app-auth-content flex h-full flex-col items-center overflow-y-auto bg-white">
       <div className="flex flex-col items-center mt-8 mb-8">
         <Sprout size={50} className="text-sprout-500 mb-2" />
         <h1 className="text-2xl font-bold text-gray-800 tracking-tight">싹키워</h1>

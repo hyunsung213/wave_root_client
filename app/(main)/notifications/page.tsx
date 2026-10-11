@@ -124,16 +124,16 @@ export default function NotificationsPage() {
     <div className="flex flex-col bg-gray-50 min-h-full">
       <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
-      <header className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 bg-white border-b border-gray-100">
+      <header className="app-page-header sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white">
         <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button text-gray-800 hover:text-black transition-colors -ml-2">
           <ChevronLeft size={28} strokeWidth={2.5} />
         </button>
-        <h1 className="text-lg font-extrabold text-gray-800">알림</h1>
+        <h1 className="app-page-title text-gray-800">알림</h1>
         <button type="button" aria-label="알림 새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button text-gray-700"><RefreshCw size={20} /></button>
       </header>
 
       {/* 알림 목록 */}
-      <div className="flex-1 overflow-y-auto px-6 pt-6 pb-20 hide-scrollbar">
+      <div className="app-page-content hide-scrollbar flex-1 overflow-y-auto pb-20 pt-6">
         {loading ? (
           <div role="status" aria-label="알림을 불러오는 중" className="flex flex-col gap-4">
             <span className="sr-only">알림을 불러오는 중…</span>
@@ -171,15 +171,15 @@ export default function NotificationsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-1">
-                    <h4 className="text-[15px] font-extrabold text-gray-800 truncate pr-2">{noti.title}</h4>
-                    <span className="text-[11px] font-bold text-gray-400 shrink-0 whitespace-nowrap mt-0.5">
+                    <h4 className="truncate pr-2 text-base font-extrabold text-gray-800">{noti.title}</h4>
+                    <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs font-bold text-gray-400">
                       {formatDate(noti.createdAt)}
                     </span>
                   </div>
-                  <p className="text-[13px] font-medium text-gray-600 leading-relaxed line-clamp-2">
+                  <p className="line-clamp-2 text-sm font-medium leading-relaxed text-gray-600">
                     {noti.message || noti.content}
                   </p>
-                  <span className={`mt-1 inline-block text-[11px] font-bold ${noti.isRead ? "text-gray-500" : "text-[#496d2f]"}`}>
+                  <span className={`mt-1 inline-block text-xs font-bold ${noti.isRead ? "text-gray-500" : "text-[#496d2f]"}`}>
                     {noti.isRead ? "읽음" : "읽지 않음"}
                   </span>
                 </div>

@@ -186,7 +186,7 @@ export default function HomePage() {
     <div className="flex flex-col bg-white min-h-full">
       <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
-      <header className="flex justify-between items-center px-6 pt-6 pb-4">
+      <header className="app-page-header flex items-center justify-between">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
         <div className="flex gap-3 text-gray-500">
           <button type="button" aria-label="새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button"><RefreshCw size={20} /></button>
@@ -200,7 +200,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="px-6 flex flex-col gap-5">
+      <div className="app-page-content flex flex-col gap-5">
         {/* 인사말 + 캐릭터 */}
         <section className="flex items-end gap-2 -mt-1">
           <div className="flex-1 min-w-0 pb-1">

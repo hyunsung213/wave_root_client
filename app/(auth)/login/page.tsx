@@ -67,7 +67,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-full flex-col items-center overflow-y-auto bg-white p-8">
+    <div className="app-auth-content flex h-full flex-col items-center overflow-y-auto bg-white">
       <div className="flex flex-col items-center mt-12 mb-10 w-full relative h-[100px]">
         <Image 
           src="/images/logo_ssakiwoe.png" 

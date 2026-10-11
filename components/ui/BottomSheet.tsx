@@ -172,18 +172,18 @@ export default function BottomSheet({
                 <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
               </div>
 
-              <div className="flex shrink-0 items-start justify-between gap-3 px-6 pb-4">
+              <div className="app-sheet-gutter flex shrink-0 items-start justify-between gap-3 pb-4">
                 <div>
-                  <h3 id={titleId} className="text-[20px] font-extrabold text-gray-900 tracking-tight">{title || "상세 내용"}</h3>
-                  {description && <p id={descriptionId} className="mt-1 text-[13px] font-medium text-gray-600">{description}</p>}
+                  <h3 id={titleId} className="app-page-title text-gray-900">{title || "상세 내용"}</h3>
+                  {description && <p id={descriptionId} className="app-body-text mt-1 font-medium text-gray-600">{description}</p>}
                 </div>
                 <button ref={closeRef} type="button" onClick={closeSheet} aria-label="닫기" className="icon-button -mr-2 -mt-2 rounded-full text-gray-700 hover:bg-gray-100">×</button>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 overscroll-contain">
+              <div className="app-sheet-gutter min-h-0 flex-1 overflow-y-auto pb-6 overscroll-contain">
                 {children}
               </div>
-              {footer && <div className="shrink-0 border-t border-gray-100 bg-white px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">{footer}</div>}
+              {footer && <div className="app-sheet-gutter shrink-0 border-t border-gray-100 bg-white pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">{footer}</div>}
             </motion.div>
           </div>
         </div>

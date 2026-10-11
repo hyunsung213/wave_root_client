@@ -133,7 +133,7 @@ export default function MyPage() {
     <div className="flex flex-col bg-white min-h-full">
       <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
-      <header className="flex justify-between items-center px-6 pt-6 pb-4">
+      <header className="app-page-header flex items-center justify-between">
         <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
         <div className="flex gap-3 text-gray-500">
           <button type="button" aria-label="새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button"><RefreshCw size={20} /></button>
@@ -146,7 +146,7 @@ export default function MyPage() {
         </div>
       </header>
 
-      <div className="px-6 flex flex-col gap-5">
+      <div className="app-page-content flex flex-col gap-5">
         {/* 프로필 카드 */}
         <section>
           {userError && !loading ? <RequestError message="회원 정보를 불러오지 못했어요." onRetry={() => setRetryCount((value) => value + 1)} /> : (
@@ -290,20 +290,20 @@ export default function MyPage() {
                           <h3 className="text-[22px] font-extrabold text-gray-900 tracking-tight truncate">
                             {selectedPlant.name}
                           </h3>
-                          <p className="text-[13px] font-medium text-gray-400 truncate">{selectedPlant.type}</p>
+                          <p className="truncate text-sm font-medium text-gray-500">{selectedPlant.type}</p>
                         </div>
                       </div>
 
                       {/* 성장률 */}
                       <div className="bg-gray-50 border border-gray-100 rounded-[1.25rem] p-5 mb-4">
                         <div className="flex justify-between items-center mb-2">
-                          <span className="text-[13px] font-bold text-gray-500">성장률</span>
-                          <span className="text-[15px] font-extrabold text-[#6ea447]">{percent}%</span>
+                          <span className="text-sm font-bold text-gray-500">성장률</span>
+                          <span className="text-base font-extrabold text-[#6ea447]">{percent}%</span>
                         </div>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div className="h-full bg-[#6ea447] rounded-full transition-[width]" style={{ width: `${percent}%` }}></div>
                         </div>
-                        <p className="text-[11px] font-medium text-gray-400 mt-2">
+                        <p className="mt-2 text-xs font-medium text-gray-500">
                           평균 재배기간 {HARVEST_DAYS}일 기준
                         </p>
                       </div>
@@ -314,22 +314,22 @@ export default function MyPage() {
                           <div className="w-9 h-9 bg-[#eef7e6] rounded-xl flex items-center justify-center shrink-0 text-[#6ea447]">
                             <CalendarDays size={16} />
                           </div>
-                          <span className="text-[13px] font-medium text-gray-500 flex-1">입양일</span>
-                          <span className="text-[14px] font-extrabold text-gray-800">{formatDate(startDate)}</span>
+                          <span className="flex-1 text-sm font-medium text-gray-500">입양일</span>
+                          <span className="text-sm font-extrabold text-gray-800">{formatDate(startDate)}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 bg-[#eef7e6] rounded-xl flex items-center justify-center shrink-0 text-[#6ea447]">
                             <Sprout size={16} />
                           </div>
-                          <span className="text-[13px] font-medium text-gray-500 flex-1">예상 수확일</span>
-                          <span className="text-[14px] font-extrabold text-gray-800">{formatDate(harvestDate)}</span>
+                          <span className="flex-1 text-sm font-medium text-gray-500">예상 수확일</span>
+                          <span className="text-sm font-extrabold text-gray-800">{formatDate(harvestDate)}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 bg-[#eef7e6] rounded-xl flex items-center justify-center shrink-0 text-[#6ea447]">
                             <Clock size={16} />
                           </div>
-                          <span className="text-[13px] font-medium text-gray-500 flex-1">남은 일수</span>
-                          <span className="text-[14px] font-extrabold text-[#6ea447]">
+                          <span className="flex-1 text-sm font-medium text-gray-500">남은 일수</span>
+                          <span className="text-sm font-extrabold text-[#6ea447]">
                             {remaining > 0 ? `${remaining}일` : "수확 시기예요!"}
                           </span>
                         </div>
@@ -362,7 +362,7 @@ export default function MyPage() {
                           <div className="bg-red-50 border border-red-100 rounded-[1.25rem] p-5">
                             <div className="flex items-start gap-2.5 mb-4">
                               <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
-                              <p className="text-[13px] font-bold text-red-600 leading-relaxed">
+                              <p className="text-sm font-bold leading-relaxed text-red-600">
                                 정말 {selectedPlant.name}을(를) 파양할까요?
                                 <br />
                                 <span className="font-medium text-red-400">
