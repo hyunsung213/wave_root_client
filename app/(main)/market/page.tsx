@@ -79,7 +79,7 @@ export default function MarketPage() {
               분양받은 식물은 정기적으로<br />
               관리하고 수확 후 보내드려요.
             </p>
-            <p className="mt-2 text-xs font-semibold text-amber-700">결제 기능은 준비 중입니다.</p>
+              <p className="mt-2 text-xs font-semibold text-[#6ea447]">계좌이체 주문과 보유 쿠폰을 이용할 수 있어요.</p>
           </div>
           <div className="absolute -right-2 bottom-0 w-[140px] h-[155px]">
             <Image 

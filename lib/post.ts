@@ -28,6 +28,47 @@ export async function createPlant(data: { name: string; type: string }): Promise
   return res.data;
 }
 
+export interface CheckoutOrder {
+  _id: string;
+  orderNumber: string;
+  productId: string;
+  productName: string;
+  plantName: string;
+  depositorName: string;
+  subtotal: number;
+  discountAmount: number;
+  amountDue: number;
+  couponCode?: string | null;
+  depositDetails?: { bankName: string | null; accountNumber: string | null; accountHolder: string | null };
+  status: "pending" | "confirming" | "confirmed" | "cancelled";
+}
+
+export async function createAdoptionOrder(data: {
+  productId: string;
+  plantName: string;
+  depositorName: string;
+  couponCode?: string;
+}) {
+  const res = await api.post<{ success: boolean; order: CheckoutOrder }>("/api/web/orders", data);
+  return res.data;
+}
+
+export async function validateAdoptionCoupon(productId: string, code: string) {
+  const res = await api.post<{
+    success: boolean;
+    coupon: { code: string; discountType: "percent" | "fixed"; discountValue: number };
+    subtotal: number;
+    discountAmount: number;
+    amountDue: number;
+  }>("/api/web/coupons/validate", { productId, code });
+  return res.data;
+}
+
+export async function cancelAdoptionOrder(orderId: string) {
+  const res = await api.post<{ success: boolean; order: CheckoutOrder }>(`/api/web/orders/${encodeURIComponent(orderId)}/cancel`);
+  return res.data;
+}
+
 // 3. 성장 이벤트
 export async function createEvent(formData: FormData) {
   const res = await api.post("/api/web/events", formData, {

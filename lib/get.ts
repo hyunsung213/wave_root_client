@@ -55,3 +55,13 @@ export async function getNotifications(page = 1, limit = 30, unreadOnly = false)
   const res = await api.get("/api/web/notifications", { params: { page, limit, unreadOnly } });
   return res.data;
 }
+
+export async function getMyCoupons() {
+  const res = await api.get("/api/web/coupons");
+  return res.data;
+}
+
+export async function getMyOrder(orderId: string) {
+  const res = await api.get(`/api/web/orders/${encodeURIComponent(orderId)}`);
+  return res.data;
+}
