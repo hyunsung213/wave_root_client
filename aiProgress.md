@@ -2,6 +2,7 @@
 
 ## 2026-10-11
 
+- 2026-10-11 19:44:52 (+09:00) — 분양 checkout 주문·쿠폰 변경을 ESLint, TypeScript 검사, Next.js production build로 확인함. 커밋 `c1ad8e3`을 GitHub `main`에 push하고 Vercel production 배포 `dpl_HE75xGPNHyGP2E4v2zFW7vFiKCH5`가 SHA `c1ad8e3d1bef0530f047df87ebe52490118cdbf3`로 `READY`, 운영 도메인 연결 완료를 확인함. 백엔드 Render 운영 health/ready 200, 쿠폰 API 인증 응답 401, 프론트 origin CORS preflight 204를 확인함.
 - 2026-10-11 (+09:00) — 분양 checkout을 서버 주문 생성·쿠폰 검증 API에 연결함. 회원은 공개/발급 쿠폰을 적용하고 계좌이체 주문번호·입금정보를 확인하며 대기 주문 조회/취소가 가능함. 주문 생성만으로 결제완료를 표시하거나 식물을 추가하지 않고 관리자 입금 확인 상태에 따라 안내함. 분양 목록의 준비 중 안내를 활성 주문 흐름으로 교체함. 변경 프론트 ESLint와 TypeScript `tsc --noEmit` 통과. Next.js production build도 실제 detached 실행에서 compile/typecheck/static generation을 완료함(17 workers, 주요 경로 `/checkout/[plantId]` 포함). 배포/푸시는 실행하지 않음.
 
 ## 2026-10-10
