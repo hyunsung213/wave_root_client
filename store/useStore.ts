@@ -17,7 +17,9 @@ export interface Plant {
   name: string;
   type: string;
   createdAt?: string;
-  growthRate?: number; // 클라이언트 전용 또는 이후 추가될 수 있음
+  growthPercent?: number;
+  growthDays?: number;
+  growthTargetDays?: number;
   streamingUrl?: string | null;
 }
 

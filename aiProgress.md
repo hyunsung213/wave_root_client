@@ -2,6 +2,7 @@
 
 ## 2026-10-11
 
+- 2026-10-11 (+09:00) — 홈 화면의 물주기/토양수분 배너와 센서 요청을 제거하고 식물 수, 백엔드 작물별 `growthPercent` 평균, 성장 기록·수확 횟수 및 최신 성장 이벤트를 보여주는 정원 요약으로 교체함. 활동·통합 기록 API 실패는 독립 처리하고 최신 이벤트는 필요 시 식물별 API로 대체 조회하도록 해 부분 장애 시에도 이용 가능한 데이터를 표시함. 홈 성장 카드도 백엔드 성장률을 사용하고 누락 값은 `—`로 표시하도록 보완함. `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` 모두 통과. 실제 계정 화면 및 API 장애 주입은 실행하지 않음.
 - 2026-10-11 19:44:52 (+09:00) — 분양 checkout 주문·쿠폰 변경을 ESLint, TypeScript 검사, Next.js production build로 확인함. 커밋 `c1ad8e3`을 GitHub `main`에 push하고 Vercel production 배포 `dpl_HE75xGPNHyGP2E4v2zFW7vFiKCH5`가 SHA `c1ad8e3d1bef0530f047df87ebe52490118cdbf3`로 `READY`, 운영 도메인 연결 완료를 확인함. 백엔드 Render 운영 health/ready 200, 쿠폰 API 인증 응답 401, 프론트 origin CORS preflight 204를 확인함.
 - 2026-10-11 (+09:00) — 분양 checkout을 서버 주문 생성·쿠폰 검증 API에 연결함. 회원은 공개/발급 쿠폰을 적용하고 계좌이체 주문번호·입금정보를 확인하며 대기 주문 조회/취소가 가능함. 주문 생성만으로 결제완료를 표시하거나 식물을 추가하지 않고 관리자 입금 확인 상태에 따라 안내함. 분양 목록의 준비 중 안내를 활성 주문 흐름으로 교체함. 변경 프론트 ESLint와 TypeScript `tsc --noEmit` 통과. Next.js production build도 실제 detached 실행에서 compile/typecheck/static generation을 완료함(17 workers, 주요 경로 `/checkout/[plantId]` 포함). 배포/푸시는 실행하지 않음.
 

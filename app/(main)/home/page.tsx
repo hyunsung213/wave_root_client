@@ -1,16 +1,64 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Settings, Plus, ChevronRight, CheckSquare, RefreshCw } from "lucide-react";
+import { Bell, BookOpen, CalendarDays, ChevronRight, Leaf, Plus, RefreshCw, Settings, Sprout, Trophy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { getPlants, getPlantCurrent } from "@/lib/get";
-import { getGrowth } from "@/lib/growth";
+import { getActivity, getEvents, getPlants, getPlantsWithRecords } from "@/lib/get";
 import { useStore, type Plant } from "@/store/useStore";
-import { soilMoisturePercent } from "@/lib/sensors";
-import { EmptyState, RequestError } from "@/components/ui/RequestState";
+import { RequestError } from "@/components/ui/RequestState";
 import PullToRefreshStatus from "@/components/ui/PullToRefreshStatus";
 import { usePullToRefresh } from "@/lib/usePullToRefresh";
+
+interface GrowthRecord {
+  _id?: string;
+  title: string;
+  content: string;
+  imageUrl?: string | null;
+  eventDate?: string;
+  createdAt?: string;
+}
+
+interface PlantWithGrowthRecords extends Plant {
+  eventRecords?: GrowthRecord[];
+}
+
+interface LatestGrowthRecord extends GrowthRecord {
+  plantId: string;
+  plantName: string;
+}
+
+interface ActivitySummary {
+  growthRecordCount?: number;
+  harvestCount?: number;
+}
+
+function getEventTimestamp(event: GrowthRecord) {
+  const timestamp = new Date(event.eventDate || event.createdAt || "").getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function selectLatestEvent(plants: Plant[], eventsByPlant?: GrowthRecord[][]): LatestGrowthRecord | null {
+  const events = (plants as PlantWithGrowthRecords[]).flatMap((plant, index) => {
+    const records = eventsByPlant?.[index] ?? plant.eventRecords ?? [];
+    return records.map((event) => ({ ...event, plantId: plant._id, plantName: plant.name }));
+  });
+
+  events.sort((left, right) => getEventTimestamp(right) - getEventTimestamp(left));
+  return events[0] ?? null;
+}
+
+function formatEventDate(value?: string) {
+  if (!value) return "날짜 미상";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "날짜 미상";
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Seoul",
+  }).format(date);
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -19,10 +67,12 @@ export default function HomePage() {
   const setMyPlants = useStore((state) => state.setMyPlants);
   
   const [loading, setLoading] = useState(true);
-  const [alertPlant, setAlertPlant] = useState<Plant | null>(null);
-  const [moisture, setMoisture] = useState<number | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [sensorError, setSensorError] = useState(false);
+  const [activity, setActivity] = useState<ActivitySummary | null>(null);
+  const [activityError, setActivityError] = useState(false);
+  const [latestEvent, setLatestEvent] = useState<LatestGrowthRecord | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   // 서버 렌더 시점과 시간대가 달라질 수 있어 마운트 후에 인사말을 정한다.
   const [greeting, setGreeting] = useState("반가워요");
@@ -39,47 +89,91 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const fetchPlants = async () => {
+    let isCurrent = true;
+
+    const fetchHomeSummary = async () => {
       setLoading(true);
       setLoadError(false);
-      setSensorError(false);
+      setActivityError(false);
+      setEventsLoading(true);
+      setEventsError(false);
+
+      const [plantsResult, activityResult, recordsResult] = await Promise.allSettled([
+        getPlants(),
+        getActivity(),
+        getPlantsWithRecords(),
+      ]);
+
       try {
-        const data = await getPlants();
-        if (!data.success) throw new Error("식물 목록을 불러오지 못했습니다.");
-        {
-          const plants = data.plants || data.data || [];
-          setMyPlants(plants);
-          setAlertPlant(null);
-          setMoisture(null);
-          
-          if (plants && plants.length > 0) {
-            const firstPlant = plants[0];
-            try {
-              const currentData = await getPlantCurrent(firstPlant._id);
-              if (currentData.success && currentData.sensor) {
-                const currentMoisture = soilMoisturePercent(currentData.sensor.moisture_soil);
-                if (currentMoisture === null) throw new Error("토양 센서값을 확인할 수 없습니다.");
-                setAlertPlant(firstPlant);
-                setMoisture(currentMoisture);
-              } else {
-                throw new Error("센서 정보를 불러오지 못했습니다.");
-              }
-            } catch (err) {
-              console.error("Failed to fetch current sensor:", err);
-              setSensorError(true);
-            }
-          }
+        if (!isCurrent) return;
+        const primaryPlants = plantsResult.status === "fulfilled" && plantsResult.value.success
+          ? plantsResult.value.plants || plantsResult.value.data || null
+          : null;
+        const plantsWithRecords: PlantWithGrowthRecords[] = recordsResult.status === "fulfilled" && recordsResult.value.success
+          ? recordsResult.value.plants ?? []
+          : [];
+        const hasRecordsResponse = recordsResult.status === "fulfilled" && recordsResult.value.success;
+        if (!primaryPlants && !hasRecordsResponse) {
+          throw new Error("식물 목록을 불러오지 못했습니다.");
         }
+
+        const plants: Plant[] = primaryPlants ?? plantsWithRecords;
+        setMyPlants(plants);
+
+        if (activityResult.status === "fulfilled" && activityResult.value.success && activityResult.value.activity) {
+          setActivity(activityResult.value.activity ?? null);
+        } else {
+          setActivity(null);
+          setActivityError(true);
+        }
+
+        if (plants.length === 0) {
+          setLatestEvent(null);
+          setEventsError(false);
+          return;
+        }
+
+        if (recordsResult.status === "fulfilled" && recordsResult.value.success) {
+          const recordsPlants = plants.map((plant) => plantsWithRecords.find((item) => item._id === plant._id) ?? plant);
+          setLatestEvent(selectLatestEvent(recordsPlants));
+          setEventsError(false);
+          return;
+        }
+
+        const eventResults = await Promise.allSettled(
+          plants.map((plant) => getEvents(plant._id, 1, 1, "desc")),
+        );
+        if (!isCurrent) return;
+        const eventsByPlant = eventResults.map((result) => (
+          result.status === "fulfilled" && result.value.success ? result.value.events ?? [] : []
+        ));
+        setLatestEvent(selectLatestEvent(plants, eventsByPlant));
+        setEventsError(eventResults.some((result) => result.status === "rejected" || !result.value?.success));
       } catch (error) {
         console.error("Failed to fetch plants:", error);
-        setLoadError(true);
+        if (isCurrent) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (isCurrent) {
+          setLoading(false);
+          setEventsLoading(false);
+        }
       }
     };
     
-    fetchPlants();
+    fetchHomeSummary();
+    return () => {
+      isCurrent = false;
+    };
   }, [setMyPlants, retryCount]);
+
+  const growthPercentages = myPlants
+    .map((plant) => plant.growthPercent)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const averageGrowth = myPlants.length > 0 && growthPercentages.length === myPlants.length
+    ? Math.round(growthPercentages.reduce((sum, value) => sum + value, 0) / growthPercentages.length)
+    : null;
+
+  const formatGrowthDate = (event: GrowthRecord) => formatEventDate(event.eventDate || event.createdAt);
 
   const getPlantImage = (type: string = "") => {
     if (type.includes("토마토")) return "/plants/tomato.png";
@@ -124,56 +218,106 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 오늘의 할 일 */}
-        <section>
-          <h2 className="text-[17px] font-extrabold text-gray-800 flex items-center gap-2 mb-3">
-            <CheckSquare size={20} strokeWidth={2.5} className="text-red-500" />
-            오늘의 할 일
-          </h2>
+        {/* 정원 요약 */}
+        <section aria-labelledby="garden-summary-heading">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 id="garden-summary-heading" className="flex items-center gap-2 text-[17px] font-extrabold text-gray-800">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#edf5e7] text-[#5b873a]"><Sprout size={18} /></span>
+              나의 정원 한눈에 보기
+            </h2>
+            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#91a77e]">garden notes</span>
+          </div>
 
           {loading ? (
-            <div role="status" className="h-40 animate-pulse rounded-[1.5rem] bg-gray-100"><span className="sr-only">오늘의 할 일을 불러오는 중</span></div>
+            <div role="status" className="grid grid-cols-2 gap-2.5 rounded-[1.6rem] border border-[#e9eee4] bg-[#f7f9f4] p-3 animate-pulse">
+              <span className="sr-only">정원 요약을 불러오는 중</span>
+              {[1, 2, 3, 4].map((item) => <div key={item} aria-hidden="true" className="h-[92px] rounded-[1.2rem] bg-white" />)}
+            </div>
           ) : loadError ? (
             <RequestError onRetry={() => setRetryCount((value) => value + 1)} />
-          ) : myPlants.length === 0 ? (
-            <EmptyState message="아직 분양받은 식물이 없어요." action={<button type="button" onClick={() => router.push('/market')} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">식물 둘러보기</button>} />
-          ) : sensorError ? (
-            <RequestError message="토양 센서 상태를 확인하지 못했어요." onRetry={() => setRetryCount((value) => value + 1)} />
-          ) : alertPlant && moisture !== null ? (
-            <button type="button"
-              onClick={() => router.push(`/live/${alertPlant._id}`)}
-              className="flex w-full items-stretch rounded-[1.5rem] border border-[#e2ecc8] bg-[#f7fbf3] p-5 text-left transition-transform active:scale-[0.98]"
-            >
-              <div className="w-[110px] h-[130px] relative -ml-3 -my-2 shrink-0 self-end">
-                <Image 
-                  src={getPlantImage(alertPlant.type)} 
-                  alt="오늘의 할일 식물" 
-                  fill
-                  className="object-contain object-bottom drop-shadow-md"
-                />
-              </div>
-              <div className="flex-1 flex flex-col justify-center pl-3 py-1">
-                <h3 className="font-extrabold text-[20px] text-gray-800 mb-2">{alertPlant.name}</h3>
-                <p className="text-[#5b873a] text-sm font-bold flex items-center gap-1.5 mb-1">
-                  <span>💧</span> 토양 수분 {moisture.toFixed(0)}%
-                </p>
-                <p className="text-gray-600 text-sm font-bold">{moisture < 30 ? "토양 수분이 낮아요. 상태를 확인해주세요." : "현재 토양 상태를 확인해보세요."}</p>
-              </div>
-              <div className="flex items-center text-gray-500 ml-1 shrink-0">
-                <ChevronRight size={20} strokeWidth={2.5} />
-              </div>
-            </button>
           ) : (
-            <div className="bg-[#f7fbf3] border border-[#e2ecc8] rounded-[1.5rem] p-6 flex items-center gap-4 shadow-sm">
-              <div className="w-12 h-12 rounded-2xl bg-white border border-[#e2ecc8] flex items-center justify-center text-2xl shrink-0">
-                ✅
+            <div className="rounded-[1.6rem] border border-[#e9eee4] bg-[#f7f9f4] p-3 shadow-[0_12px_32px_-28px_rgba(50,75,35,0.45)]">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="rounded-[1.2rem] bg-white p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-400">함께 자라는 식물</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef5e8] text-[#679348]"><Leaf size={15} /></span>
+                  </div>
+                  <p className="text-[27px] font-black leading-none tracking-tight text-[#34442c]">{myPlants.length}<span className="ml-1 text-sm font-bold text-gray-400">그루</span></p>
+                </div>
+                <div className="rounded-[1.2rem] bg-white p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-400">평균 성장</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f5f0df] text-[#b18a37]"><Sprout size={15} /></span>
+                  </div>
+                  <p className="text-[27px] font-black leading-none tracking-tight text-[#34442c]">{averageGrowth === null ? "—" : `${averageGrowth}%`}</p>
+                </div>
+                <div className="rounded-[1.2rem] bg-white p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-400">성장 기록</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#edf2f6] text-[#65819a]"><BookOpen size={15} /></span>
+                  </div>
+                  <p className="text-[27px] font-black leading-none tracking-tight text-[#34442c]">{activity?.growthRecordCount ?? "—"}<span className="ml-1 text-sm font-bold text-gray-400">회</span></p>
+                </div>
+                <div className="rounded-[1.2rem] bg-white p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-400">수확의 기쁨</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fbf0e7] text-[#c17d46]"><Trophy size={15} /></span>
+                  </div>
+                  <p className="text-[27px] font-black leading-none tracking-tight text-[#34442c]">{activity?.harvestCount ?? "—"}<span className="ml-1 text-sm font-bold text-gray-400">회</span></p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h3 className="font-extrabold text-[#5b873a] text-[15px]">오늘은 할 일이 없어요!</h3>
-                <p className="text-[13px] font-medium text-gray-500 mt-0.5">식물들이 건강하게 자라고 있어요.</p>
-              </div>
+              {activityError && <p role="status" className="px-1 pt-2 text-[11px] font-medium text-gray-400">활동 기록을 불러오지 못했어요. 나머지 정원 정보는 표시 중이에요.</p>}
             </div>
           )}
+        </section>
+
+        {/* 최근 성장 소식 */}
+        <section aria-labelledby="latest-growth-heading">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 id="latest-growth-heading" className="flex items-center gap-2 text-[17px] font-extrabold text-gray-800">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f6f0e1] text-[#ad8b44]"><CalendarDays size={17} /></span>
+              최근 성장 소식
+            </h2>
+            <button type="button" onClick={() => router.push("/record")} className="flex min-h-11 items-center gap-1 px-1 text-[12px] font-bold text-[#6e8c55]">
+              기록 전체보기 <ChevronRight size={15} />
+            </button>
+          </div>
+
+          {eventsLoading ? (
+            <div role="status" className="h-[142px] animate-pulse rounded-[1.5rem] border border-[#eee9dc] bg-[#fbfaf6]"><span className="sr-only">최근 성장 기록을 불러오는 중</span></div>
+          ) : latestEvent ? (
+            <button type="button" onClick={() => router.push("/record")} className="group flex w-full items-stretch gap-3 rounded-[1.5rem] border border-[#eee9dc] bg-[#fbfaf6] p-4 text-left transition-transform active:scale-[0.99]">
+              {latestEvent.imageUrl ? (
+                <div className="relative h-[96px] w-[88px] shrink-0 overflow-hidden rounded-[1.1rem] bg-[#f0efe8]">
+                  <Image src={latestEvent.imageUrl} alt="" fill sizes="88px" className="object-cover" />
+                </div>
+              ) : (
+                <div aria-hidden="true" className="flex h-[96px] w-[88px] shrink-0 items-center justify-center rounded-[1.1rem] bg-[#edf3e6] text-[#75965c]"><Sprout size={33} strokeWidth={1.7} /></div>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-full bg-[#e9f0df] px-2.5 py-1 text-[10px] font-extrabold text-[#65834d]">{latestEvent.plantName}</span>
+                  <span className="text-[11px] font-semibold text-gray-400">{formatGrowthDate(latestEvent)}</span>
+                </div>
+                <h3 className="mb-1 line-clamp-1 text-[16px] font-extrabold tracking-tight text-[#34442c]">{latestEvent.title}</h3>
+                <p className="line-clamp-2 break-words text-[12px] font-medium leading-relaxed text-gray-500">{latestEvent.content}</p>
+              </div>
+              <ChevronRight size={18} className="mt-auto mb-1 shrink-0 text-[#a8b49b] transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ) : eventsError ? (
+            <div className="rounded-[1.5rem] border border-[#eee9dc] bg-[#fbfaf6] p-5">
+              <p role="status" className="text-sm font-bold text-gray-600">최근 기록을 불러오지 못했어요.</p>
+              <button type="button" onClick={() => setRetryCount((value) => value + 1)} className="mt-2 min-h-11 text-xs font-extrabold text-[#6e8c55]">다시 불러오기</button>
+            </div>
+          ) : (
+            <div className="rounded-[1.5rem] border border-dashed border-[#e6e9df] bg-[#fafbf8] px-5 py-6 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#8da17b]"><Sprout size={20} /></div>
+              <p className="text-sm font-extrabold text-gray-700">아직 성장 기록이 없어요</p>
+              <p className="mt-1 text-xs font-medium text-gray-400">첫 기록을 남겨 정원의 변화를 모아보세요.</p>
+            </div>
+          )}
+          {eventsError && latestEvent && <p role="status" className="px-1 pt-2 text-[11px] font-medium text-gray-400">일부 식물의 성장 기록을 확인하지 못했어요.</p>}
         </section>
 
         {/* 내 정원의 성장 */}
@@ -199,7 +343,9 @@ export default function HomePage() {
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
               {myPlants.map((plant, idx) => {
                 const isActive = idx === 0;
-                const { percent } = getGrowth(plant.createdAt);
+                const percent = typeof plant.growthPercent === "number" && Number.isFinite(plant.growthPercent)
+                  ? Math.max(0, Math.min(100, Math.round(plant.growthPercent)))
+                  : null;
                 return (
                   <button type="button"
                     key={plant._id} 
@@ -220,12 +366,12 @@ export default function HomePage() {
                     </div>
                     <span className="text-[12px] font-extrabold text-gray-800 mb-1 text-center leading-tight">{plant.name}</span>
                     <span className={`text-[11px] font-extrabold mb-2 ${isActive ? 'text-[#6ea447]' : 'text-gray-400'}`}>
-                      {percent}%
+                      {percent === null ? "—" : `${percent}%`}
                     </span>
                     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${isActive ? 'bg-[#6ea447]' : 'bg-gray-300'}`}
-                        style={{ width: `${percent}%` }}
+                        style={{ width: `${percent ?? 0}%` }}
                       ></div>
                     </div>
                   </button>
