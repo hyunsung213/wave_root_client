@@ -56,8 +56,15 @@ export async function getNotifications(page = 1, limit = 30, unreadOnly = false)
   return res.data;
 }
 
+export interface AvailableCoupon {
+  code: string;
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  expiresAt: string | null;
+}
+
 export async function getMyCoupons() {
-  const res = await api.get("/api/web/coupons");
+  const res = await api.get<{ success: boolean; coupons: AvailableCoupon[] }>("/api/web/coupons");
   return res.data;
 }
 

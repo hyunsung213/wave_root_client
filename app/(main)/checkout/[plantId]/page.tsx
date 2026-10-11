@@ -3,21 +3,22 @@
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Clipboard, TicketCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { plantsData } from "@/lib/plantsData";
 import { useStore } from "@/store/useStore";
-import { getMyCoupons, getMyOrder } from "@/lib/get";
+import { getMyCoupons, getMyOrder, type AvailableCoupon } from "@/lib/get";
 import { cancelAdoptionOrder, createAdoptionOrder, validateAdoptionCoupon, type CheckoutOrder } from "@/lib/post";
 
 const PASS_PRICE = 3900;
-type IssuedCoupon = { code: string; discountType: "percent" | "fixed"; discountValue: number; expiresAt?: string | null };
 
 export default function CheckoutPage() {
   const router = useRouter();
   const params = useParams<{ plantId: string }>();
   const plant = plantsData.find((item) => item.id === params.plantId);
   const pendingPlantName = useStore((state) => state.pendingPlantName);
-  const [coupons, setCoupons] = useState<IssuedCoupon[]>([]);
+  const [coupons, setCoupons] = useState<AvailableCoupon[]>([]);
+  const [couponLoadState, setCouponLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [couponRefreshKey, setCouponRefreshKey] = useState(0);
   const [couponCode, setCouponCode] = useState("");
   const [validatedCoupon, setValidatedCoupon] = useState<{ code: string; discountAmount: number; amountDue: number } | null>(null);
   const [depositorName, setDepositorName] = useState("");
@@ -31,8 +32,16 @@ export default function CheckoutPage() {
   useEffect(() => {
     let active = true;
     getMyCoupons().then((data) => {
-      if (active) setCoupons(Array.isArray(data.coupons) ? data.coupons : []);
-    }).catch(() => { if (active) setCoupons([]); });
+      if (active) {
+        setCoupons(Array.isArray(data.coupons) ? data.coupons : []);
+        setCouponLoadState("ready");
+      }
+    }).catch(() => { if (active) { setCoupons([]); setCouponLoadState("error"); } });
+    return () => { active = false; };
+  }, [couponRefreshKey]);
+
+  useEffect(() => {
+    let active = true;
     const orderId = sessionStorage.getItem(`checkout-order:${params.plantId}`);
     if (orderId) {
       getMyOrder(orderId).then((data) => {
@@ -44,16 +53,19 @@ export default function CheckoutPage() {
     return () => { active = false; };
   }, [params.plantId]);
 
-  const selectedCoupon = useMemo(() => coupons.find((coupon) => coupon.code === couponCode), [coupons, couponCode]);
+  function refreshCoupons() {
+    setCouponLoadState("loading");
+    setCouponRefreshKey((value) => value + 1);
+  }
 
-  async function applyCoupon() {
+  async function applyCoupon(code: string) {
     setError("");
     setValidatedCoupon(null);
     if (!plant) return;
-    if (!couponCode.trim()) { setError("쿠폰 코드를 입력해주세요."); return; }
+    if (!code.trim()) { setError("쿠폰 코드를 입력해주세요."); return; }
     setBusy(true);
     try {
-      const result = await validateAdoptionCoupon(plant.id, couponCode);
+      const result = await validateAdoptionCoupon(plant.id, code.trim());
       setValidatedCoupon({ code: result.coupon.code, discountAmount: result.discountAmount, amountDue: result.amountDue });
       setCouponCode(result.coupon.code);
     } catch (cause) {
@@ -94,6 +106,7 @@ export default function CheckoutPage() {
       const result = await cancelAdoptionOrder(order._id);
       setOrder(result.order);
       sessionStorage.removeItem(`checkout-order:${plant.id}`);
+      refreshCoupons();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "주문을 취소하지 못했어요.");
     } finally { setBusy(false); }
@@ -144,7 +157,7 @@ export default function CheckoutPage() {
           ) : null}
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
           {order.status === "pending" && <button type="button" disabled={busy} onClick={cancelOrder} className="min-h-11 w-full rounded-xl border border-rose-200 font-bold text-rose-700 disabled:opacity-50">주문 취소</button>}
-          {(order.status === "confirmed" || order.status === "cancelled") && <button type="button" onClick={() => { sessionStorage.removeItem(`checkout-order:${plant.id}`); setOrder(null); setError(""); }} className="min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">새 주문 시작</button>}
+          {(order.status === "confirmed" || order.status === "cancelled") && <button type="button" onClick={() => { sessionStorage.removeItem(`checkout-order:${plant.id}`); setOrder(null); setError(""); setCouponCode(""); setValidatedCoupon(null); refreshCoupons(); }} className="min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">새 주문 시작</button>}
           <button type="button" onClick={() => router.push("/home")} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white">내 정원으로</button>
         </div>
       ) : <form onSubmit={submitOrder} className="space-y-5">
@@ -172,9 +185,20 @@ export default function CheckoutPage() {
 
       <section className="rounded-3xl border border-gray-100 p-5 shadow-sm">
         <h2 className="flex items-center gap-2 font-extrabold text-gray-900"><TicketCheck size={18} />쿠폰 적용</h2>
-        {coupons.length > 0 && <select aria-label="보유 쿠폰 선택" value={selectedCoupon?.code ?? ""} onChange={(event) => { setCouponCode(event.target.value); setValidatedCoupon(null); setError(""); }} className="mt-4 min-h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-800"><option value="">쿠폰 선택</option>{coupons.map((coupon) => <option key={coupon.code} value={coupon.code}>{coupon.code} · {coupon.discountType === "percent" ? `${coupon.discountValue}%` : `${coupon.discountValue.toLocaleString()}원`} 할인</option>)}</select>}
-        <div className="mt-3 flex gap-2"><input aria-label="쿠폰 코드" value={couponCode} onChange={(event) => { setCouponCode(event.target.value.toUpperCase()); setValidatedCoupon(null); }} placeholder="쿠폰 코드 입력" maxLength={32} className="min-h-11 min-w-0 flex-1 rounded-xl border border-gray-200 px-3 text-sm uppercase text-gray-900" /><button type="button" disabled={busy} onClick={applyCoupon} className="min-h-11 rounded-xl bg-gray-900 px-4 text-sm font-bold text-white disabled:opacity-50">적용</button></div>
-        {validatedCoupon && <p className="mt-3 text-sm font-semibold text-emerald-700" role="status">쿠폰이 적용되었습니다.</p>}
+        <p className="mt-1 text-xs leading-5 text-gray-500">사용 가능한 쿠폰을 선택하면 할인 금액을 바로 확인할 수 있어요.</p>
+        {couponLoadState === "loading" && <p className="mt-4 rounded-2xl bg-[#f6f8f2] p-4 text-sm text-gray-600" role="status">보유 쿠폰을 불러오는 중이에요…</p>}
+        {couponLoadState === "error" && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">쿠폰 목록을 불러오지 못했어요. <button type="button" onClick={refreshCoupons} className="ml-1 min-h-11 font-bold underline underline-offset-2">다시 시도</button></div>}
+        {couponLoadState === "ready" && coupons.length === 0 && <p className="mt-4 rounded-2xl bg-[#f6f8f2] p-4 text-sm text-gray-600">지금 사용할 수 있는 쿠폰이 없어요. 쿠폰 코드가 있다면 아래에 입력해주세요.</p>}
+        {couponLoadState === "ready" && coupons.length > 0 && <div className="mt-4 space-y-2" aria-label="사용 가능한 쿠폰 목록">{coupons.map((coupon) => {
+          const applied = validatedCoupon?.code === coupon.code;
+          return <button key={coupon.code} type="button" disabled={busy} aria-pressed={applied} onClick={() => applyCoupon(coupon.code)} className={`flex min-h-20 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors disabled:opacity-60 ${applied ? "border-[#6ea447] bg-[#f0f7e9]" : "border-[#dfe8d7] bg-[#f9fbf6] hover:border-[#6ea447]"}`}>
+            <span className="min-w-0"><span className="block text-lg font-black text-[#527d36]">{coupon.discountType === "percent" ? `${coupon.discountValue}% 할인` : `${coupon.discountValue.toLocaleString()}원 할인`}</span><span className="mt-0.5 block truncate text-xs font-semibold text-gray-600">{coupon.code}{coupon.expiresAt ? ` · ${new Date(coupon.expiresAt).toLocaleDateString("ko-KR")}까지` : " · 기간 제한 없음"}</span></span>
+            <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${applied ? "bg-[#6ea447] text-white" : "bg-white text-[#527d36]"}`}>{applied ? "적용됨" : "적용하기"}</span>
+          </button>;
+        })}</div>}
+        <label htmlFor="couponCode" className="mt-5 block text-xs font-semibold text-gray-600">쿠폰 코드 직접 입력</label>
+        <div className="mt-2 flex gap-2"><input id="couponCode" aria-label="쿠폰 코드" value={couponCode} disabled={busy} onChange={(event) => { setCouponCode(event.target.value.toUpperCase()); setValidatedCoupon(null); setError(""); }} placeholder="쿠폰 코드 입력" maxLength={32} className="min-h-11 min-w-0 flex-1 rounded-xl border border-gray-200 px-3 text-sm uppercase text-gray-900" /><button type="button" disabled={busy} onClick={() => applyCoupon(couponCode)} className="min-h-11 rounded-xl bg-gray-900 px-4 text-sm font-bold text-white disabled:opacity-50">적용</button></div>
+        {validatedCoupon && <div className="mt-3 flex items-center justify-between gap-3 text-sm font-semibold text-emerald-700" role="status"><span>쿠폰이 적용되었어요. −{validatedCoupon.discountAmount.toLocaleString()}원</span><button type="button" onClick={() => { setCouponCode(""); setValidatedCoupon(null); }} className="min-h-11 shrink-0 text-xs underline underline-offset-2">적용 취소</button></div>}
       </section>
 
       {amountDue > 0 && <section className="rounded-3xl border border-gray-100 p-5 shadow-sm"><h2 className="font-extrabold text-gray-900">입금 정보</h2><label htmlFor="depositorName" className="mt-4 block text-sm font-semibold text-gray-700">입금자명</label><input id="depositorName" autoComplete="name" required value={depositorName} onChange={(event) => setDepositorName(event.target.value)} maxLength={80} className="mt-2 min-h-12 w-full rounded-xl border border-gray-200 px-3 text-gray-900" placeholder="실제 입금자 이름" /><p className="mt-2 text-xs leading-5 text-gray-500">주문 접수 후 계좌 정보가 표시됩니다. 주문 접수만으로 결제가 확정되거나 식물이 생성되지는 않습니다.</p></section>}
