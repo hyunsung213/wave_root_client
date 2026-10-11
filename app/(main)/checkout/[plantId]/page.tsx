@@ -125,7 +125,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="app-page-content min-h-full bg-white pb-24 pt-6">
+    <div className="app-page-content min-h-full bg-white pb-4 pt-6">
       <header className="flex items-center gap-2 pb-4">
         <button type="button" aria-label="분양 목록으로 돌아가기" onClick={() => router.push("/market")} className="icon-button -ml-2 rounded-full text-gray-800 hover:bg-gray-100">
           <ChevronLeft size={26} />
