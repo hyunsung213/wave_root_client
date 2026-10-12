@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
 import { useCallback, useEffect, useState } from "react";
-import { Camera, ChevronDown, Edit3, Radio, RefreshCw, X } from "lucide-react";
+import { Camera, ChevronDown, Edit3, RefreshCw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, PanInfo } from "framer-motion";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -212,87 +212,68 @@ export default function LivePage() {
   const visiblePlants = myPlants.slice(indicatorStart, indicatorStart + 3);
 
   if (!plant) return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 bg-gray-950 px-6 text-center text-white">
+    <div className="flex h-full flex-col items-center justify-center gap-4 bg-white px-6 text-center text-gray-800">
+      <h1 className="text-[26px] font-black tracking-tight text-[#6ea447]">싹키워</h1>
       <p role={plantError ? "alert" : "status"}>{plantLoading ? "식물 정보를 불러오는 중이에요…" : "식물 정보를 찾지 못했어요."}</p>
-      {!plantLoading && <button type="button" onClick={() => { if (typeof plantId === "string") setPlantRequest({ id: plantId, status: "loading" }); setPlantRetry((value) => value + 1); }} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold">다시 시도</button>}
-      {!plantLoading && <button type="button" onClick={() => router.push("/home")} className="min-h-11 px-5 font-semibold">홈으로 이동</button>}
+      {!plantLoading && <button type="button" onClick={() => { if (typeof plantId === "string") setPlantRequest({ id: plantId, status: "loading" }); setPlantRetry((value) => value + 1); }} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">다시 시도</button>}
+      {!plantLoading && <button type="button" onClick={() => router.push("/home")} className="min-h-11 px-5 font-semibold text-gray-700">홈으로 이동</button>}
     </div>
   );
 
   return (
     <>
       {/* ═══ Main Live View ═══ */}
-      <motion.div 
+      <motion.div
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.2}
         onDragEnd={handleDragEnd}
-        className="relative flex h-full min-h-full w-full flex-col gap-5 overflow-hidden bg-[#f7f8f3] px-5 pb-5 pt-6"
+        className="relative flex h-full min-h-full w-full flex-col gap-3 overflow-hidden bg-white px-4 pb-4 pt-1"
       >
-        {/* ── Background / Live Stream ── */}
-        {/* Stream lives on its own compositing layer to keep playback smooth. */}
-        <div className="relative z-0 shrink-0 overflow-hidden rounded-[28px] border border-[#e7eadf] bg-white shadow-[0_12px_35px_rgba(51,69,39,0.12)]">
-        <div className="relative aspect-video w-full overflow-hidden bg-[#20291f]" style={{ willChange: 'transform', isolation: 'isolate' as const }}>
-          {plant.streamingUrl && (
-            <img
-              key={`${plant._id}:${videoRetry}:${plant.streamingUrl}`}
-              src={plant.streamingUrl}
-              alt={`${plant.name} 실시간 카메라 영상`}
-              onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
-              onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ willChange: 'transform', transform: 'translateZ(0)' }}
-            />
-          )}
-          {/* Top vignette for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/20" />
-          {/* Subtle ambient color overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/10 via-transparent to-cyan-900/10" />
-        </div>
+        <header className="app-page-header -mx-4 flex shrink-0 items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <h1 className="text-[26px] font-black tracking-tight text-[#6ea447]">싹키워</h1>
+          <button
+            type="button"
+            onClick={() => { void retryPlantStream(); }}
+            aria-label="카메라 새로고침"
+            disabled={videoStatus === "loading"}
+            className="icon-button text-gray-500 transition-colors hover:text-gray-800 disabled:cursor-wait disabled:opacity-50"
+          >
+            <RefreshCw size={20} aria-hidden="true" className={videoStatus === "loading" ? "animate-spin" : undefined} />
+          </button>
+        </header>
 
-        <section aria-label={`${plant.name} 실시간 카메라`} className="flex flex-col">
-          <div className="flex items-center justify-between gap-3 border-t border-[#f0f1ec] bg-white px-4 py-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold tracking-[0.14em] text-[#92998c]">CURRENT PLANT</p>
-              <h2 className="mt-0.5 truncate text-lg font-extrabold tracking-tight text-[#283722]">{plant.name}</h2>
-            </div>
-            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-extrabold ${videoStatus === "ready" ? "bg-[#edf6e7] text-[#507837]" : "bg-[#f2f3ef] text-[#7e8578]"}`}>
-              <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${videoStatus === "ready" ? "bg-[#6ea447]" : "bg-[#a6aca0]"}`} />
+        <section aria-label={`${plant.name} 실시간 카메라`} className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#e7eadf] bg-[#171b16] shadow-[0_10px_28px_rgba(51,69,39,0.12)]">
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-[#171b16]" style={{ willChange: "transform", isolation: "isolate" }}>
+            {plant.streamingUrl && (
+              <img
+                key={`${plant._id}:${videoRetry}:${plant.streamingUrl}`}
+                src={plant.streamingUrl}
+                alt={`${plant.name} 실시간 카메라 영상`}
+                onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
+                onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
+                className="absolute inset-0 h-full w-full object-contain"
+                style={{ willChange: "transform", transform: "translateZ(0)" }}
+              />
+            )}
+            {videoStatus !== "ready" && (
+              <p aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-xs font-semibold text-white/70">
+                {videoStatus === "error" ? "카메라 연결을 복구하고 있어요." : videoStatus === "loading" ? "카메라에 연결하고 있어요…" : "연결된 카메라가 없어요."}
+              </p>
+            )}
+            <span role="status" className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-gray-800 shadow-sm backdrop-blur-sm">
+              <span aria-hidden="true" className={`h-2 w-2 rounded-full ${videoStatus === "ready" ? "animate-pulse bg-red-500" : "bg-gray-400"}`} />
               {videoStatus === "ready" ? "LIVE" : videoStatus === "error" ? "연결 확인" : videoStatus === "loading" ? "연결 중" : "카메라 없음"}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-3 bg-white px-4 py-3">
-            <div>
-              <p className="text-sm font-bold text-[#34432d]">오늘의 성장 장면</p>
-              <p className="mt-0.5 text-xs text-[#899084]">지금 보이는 순간을 메모로 남겨보세요.</p>
-            </div>
-            {streamUrl && <button type="button" onClick={() => { void retryPlantStream(); }} aria-label="카메라 영상 새로고침" className="icon-button shrink-0 rounded-full bg-[#f4f6f0] text-[#607653] hover:bg-[#eaf0e3]"><RefreshCw size={17} aria-hidden="true" /></button>}
-          </div>
         </section>
-        </div>
-
-
-        {/* 센서값 및 연결 상태 배너는 표시하지 않습니다. */}
-        {/* ═══ TOP: compact plant name ═══ */}
-        <div className="relative z-20 -order-1 flex shrink-0 flex-col items-start px-1">
-          <motion.div 
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
-            className="flex flex-col items-start"
-          >
-            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#6b8f4e]"><Radio size={14} aria-hidden="true" /> Garden live</p>
-            <h1 className="text-[26px] font-black leading-tight tracking-[-0.04em] text-[#24351e]">실시간 돌봄</h1>
-            <p className="mt-1 text-sm font-medium text-[#788174]">카메라로 {plant.name}의 오늘을 살펴보세요.</p>
-          </motion.div>
-        </div>
 
         {/* ═══ Bottom Action Button ═══ */}
-        <motion.div 
+        <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="relative z-20 order-last mt-auto flex w-full shrink-0 justify-center"
+          className="relative z-20 order-last flex w-full shrink-0 justify-center"
         >
           {/* Record Button */}
           <motion.button 
@@ -317,7 +298,7 @@ export default function LivePage() {
                 onClick={() => router.replace(`/live/${p._id}`)}
                 aria-label={`${p.name} 화면으로 이동`}
                 aria-current={p._id === plantId ? "true" : undefined}
-                className={`min-h-10 min-w-11 rounded-full px-4 text-xs font-bold ${p._id === plantId ? "bg-[#eaf3e3] text-[#496d2f]" : "bg-white text-[#888f82]"}`}
+                className={`min-h-10 min-w-0 max-w-[calc((100vw-3.5rem)/3)] truncate rounded-full px-4 text-xs font-bold ${p._id === plantId ? "bg-[#eaf3e3] text-[#496d2f]" : "bg-[#f5f6f3] text-[#888f82]"}`}
               >{p.name}</button>
             ))}
           </div>
