@@ -126,7 +126,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className={`app-page-content min-h-full pb-4 pt-6 ${isFreeOrder ? "flex flex-col bg-[#fbfcf8]" : "bg-white"}`}>
+    <div className={`app-page-content min-h-full bg-white pb-4 pt-6 ${isFreeOrder ? "flex flex-col" : ""}`}>
       {!isFreeOrder && <header className="flex items-center gap-2 pb-4">
         <button type="button" aria-label="분양 목록으로 돌아가기" onClick={() => router.push("/market")} className="icon-button -ml-2 rounded-full text-gray-800 hover:bg-gray-100">
           <ChevronLeft size={26} />
@@ -137,44 +137,43 @@ export default function CheckoutPage() {
       {order ? (
         isFreeOrder ? (
           <div className="flex min-h-[calc(100dvh-10rem)] flex-1 flex-col">
-            <section className="flex flex-1 flex-col items-center justify-center py-10 text-center" aria-live="polite">
+            <section className="flex flex-1 flex-col items-center justify-center rounded-[28px] border border-gray-100 bg-white px-5 py-10 text-center shadow-sm" aria-live="polite">
               <div className="mb-7 grid h-24 w-24 place-items-center rounded-full bg-[#eaf4e1]">
                 <div className="grid h-[4.25rem] w-[4.25rem] place-items-center rounded-full bg-[#6ea447] text-white shadow-[0_12px_28px_rgba(110,164,71,0.24)]">
                   <Check size={38} strokeWidth={3} aria-hidden="true" />
                 </div>
               </div>
-              <p className="text-[11px] font-black tracking-[.22em] text-[#648b45]">COUPON ORDER COMPLETE</p>
               <h2 className="mt-3 text-[28px] font-black leading-tight tracking-[-.04em] text-gray-900">축하해요!<br />쿠폰 주문이 완료됐어요</h2>
               <p className="mt-3 max-w-[17rem] text-sm leading-6 text-gray-600">쿠폰을 사용해 결제 금액 0원으로 주문했어요.</p>
-              <div className="mt-8 flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#e8eddf] bg-white px-4 py-3.5 text-left shadow-[0_8px_24px_rgba(44,66,31,0.04)]">
+              <div className="mt-8 flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-left">
                 <div className="min-w-0">
                   <span className="block text-xs font-semibold text-gray-500">주문번호</span>
-                  <strong className="mt-1 block break-all text-base font-extrabold tracking-wide text-gray-900">{order.orderNumber}</strong>
+                  <strong className="mt-1 block max-w-full truncate whitespace-nowrap text-sm font-bold tabular-nums text-gray-900">{order.orderNumber}</strong>
                 </div>
-                <button type="button" onClick={copyOrderNumber} aria-label="주문번호 복사" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f3f6ef] text-[#527d36] transition-colors hover:bg-[#eaf2e2]">
+                <button type="button" onClick={copyOrderNumber} aria-label="주문번호 복사" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-[#527d36] transition-colors hover:bg-gray-100">
                   <Clipboard size={18} />
                 </button>
               </div>
             </section>
             <div className="mt-auto space-y-4 pb-3">
               <button type="button" onClick={() => router.push("/home")} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white shadow-[0_8px_20px_rgba(110,164,71,0.2)] transition-colors hover:bg-[#5b913e]">내 정원으로</button>
-              <p className="rounded-2xl border border-[#e8eddf] bg-white px-4 py-3.5 text-center text-xs leading-5 text-gray-600">
+              <p className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3.5 text-center text-xs leading-5 text-gray-600">
                 주문 확인 후 최대 <strong className="font-extrabold text-[#527d36]">6시간 안에</strong> 식물이 내 정원에 연결돼요.
               </p>
             </div>
           </div>
         ) : <div className="space-y-5">
-          <section className="rounded-[28px] border border-emerald-200 bg-emerald-50 p-6">
-            <p className="text-xs font-black tracking-[.18em] text-emerald-700">{order.status === "cancelled" ? "ORDER CANCELLED" : order.status === "confirmed" ? "ADOPTION CONFIRMED" : order.status === "confirming" ? "DEPOSIT CHECK" : "WAITING FOR DEPOSIT"}</p>
-            <h2 className="mt-2 text-2xl font-black text-gray-900">{order.status === "cancelled" ? "주문이 취소되었어요" : order.status === "confirmed" ? "분양이 확정되었어요" : order.status === "confirming" ? "입금 내역을 확인하고 있어요" : "입금을 기다리고 있어요"}</h2>
+          <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="text-xl font-black text-gray-900">{order.status === "cancelled" ? "주문이 취소되었어요" : order.status === "confirmed" ? "분양이 확정되었어요" : order.status === "confirming" ? "입금 내역을 확인하고 있어요" : "입금 대기 중"}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-700">{order.status === "confirmed" ? "입금 확인이 완료되어 식물이 내 정원에 추가되었어요." : order.status === "cancelled" ? "취소된 주문은 다시 입금하지 마세요." : order.status === "confirming" ? "확인이 끝나면 식물이 내 정원에 추가됩니다." : "입금 확인 후 식물이 내 정원에 추가됩니다. 확인 전에는 식물이 생성되지 않아요."}</p>
-            <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-white p-4">
-              <div><span className="block text-xs text-gray-500">주문번호</span><strong className="mt-1 block text-lg tracking-wide text-gray-900">{order.orderNumber}</strong></div>
-              <button type="button" onClick={copyOrderNumber} aria-label="주문번호 복사" className="grid h-11 w-11 place-items-center rounded-xl bg-gray-100 text-gray-700"><Clipboard size={18} /></button>
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <div className="min-w-0 flex-1"><span className="block text-xs text-gray-500">주문번호</span><strong className="mt-1 block max-w-full truncate whitespace-nowrap text-sm font-bold tabular-nums text-gray-900">{order.orderNumber}</strong></div>
+              <button type="button" onClick={copyOrderNumber} aria-label="주문번호 복사" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-gray-700"><Clipboard size={18} /></button>
             </div>
+            {order.status !== "cancelled" && order.status !== "confirmed" && <p className="mt-3 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-700">입금 확인 후 <strong className="font-bold text-gray-900">10분~3시간 이내</strong>에 식물 매칭이 완료될 예정이에요.</p>}
           </section>
           {order.status !== "cancelled" && order.status !== "confirmed" && order.amountDue > 0 && order.depositDetails ? (
-            <section className="rounded-3xl border border-gray-100 p-5 shadow-sm">
+            <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
               <h2 className="app-section-title text-gray-900">계좌이체 안내</h2>
               <dl className="mt-4 space-y-3 text-sm">
                 <div className="flex justify-between gap-4"><dt className="text-gray-500">은행</dt><dd className="font-bold text-gray-900">{order.depositDetails.bankName}</dd></div>
@@ -193,7 +192,7 @@ export default function CheckoutPage() {
           <button type="button" onClick={() => router.push("/home")} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white">내 정원으로</button>
         </div>
       ) : <form onSubmit={submitOrder} className="space-y-5">
-      <section className="flex items-center gap-4 rounded-3xl border border-gray-100 p-4 shadow-sm">
+      <section className="flex items-center gap-4 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="relative h-20 w-20 shrink-0 rounded-2xl bg-gray-50">
           <Image src={plant.imageUrl} alt={plant.name} fill sizes="80px" className="object-contain p-2" />
         </div>
@@ -204,7 +203,7 @@ export default function CheckoutPage() {
         </div>
       </section>
 
-      <section className="mt-5 rounded-3xl border border-gray-100 p-5 shadow-sm">
+      <section className="mt-5 rounded-3xl border border-gray-100 bg-gray-50 p-5">
         <h2 className="app-section-title text-gray-900">주문 금액</h2>
         <dl className="mt-4 space-y-3 text-sm">
           <div className="flex justify-between gap-3"><dt className="text-gray-600">작물 분양</dt><dd className="font-semibold text-gray-900">{plant.price.toLocaleString()}원</dd></div>
@@ -215,12 +214,12 @@ export default function CheckoutPage() {
         </dl>
       </section>
 
-      <section className="rounded-3xl border border-gray-100 p-5 shadow-sm">
+      <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="app-section-title flex items-center gap-2 text-gray-900"><TicketCheck size={18} />쿠폰 적용</h2>
         <p className="mt-1 text-xs leading-5 text-gray-500">사용 가능한 쿠폰을 선택하면 할인 금액을 바로 확인할 수 있어요.</p>
-        {couponLoadState === "loading" && <p className="mt-4 rounded-2xl bg-[#f6f8f2] p-4 text-sm text-gray-600" role="status">보유 쿠폰을 불러오는 중이에요…</p>}
+        {couponLoadState === "loading" && <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-sm text-gray-600" role="status">보유 쿠폰을 불러오는 중이에요…</p>}
         {couponLoadState === "error" && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">쿠폰 목록을 불러오지 못했어요. <button type="button" onClick={refreshCoupons} className="ml-1 min-h-11 font-bold underline underline-offset-2">다시 시도</button></div>}
-        {couponLoadState === "ready" && coupons.length === 0 && <p className="mt-4 rounded-2xl bg-[#f6f8f2] p-4 text-sm text-gray-600">지금 사용할 수 있는 쿠폰이 없어요. 쿠폰 코드가 있다면 아래에 입력해주세요.</p>}
+        {couponLoadState === "ready" && coupons.length === 0 && <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">지금 사용할 수 있는 쿠폰이 없어요. 쿠폰 코드가 있다면 아래에 입력해주세요.</p>}
         {couponLoadState === "ready" && coupons.length > 0 && <div className="mt-4 space-y-2" aria-label="사용 가능한 쿠폰 목록">{coupons.map((coupon) => {
           const applied = validatedCoupon?.code === coupon.code;
           return <button key={coupon.code} type="button" disabled={busy} aria-pressed={applied} onClick={() => applyCoupon(coupon.code)} className={`flex min-h-20 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors disabled:opacity-60 ${applied ? "border-[#6ea447] bg-[#f0f7e9]" : "border-[#dfe8d7] bg-[#f9fbf6] hover:border-[#6ea447]"}`}>
@@ -233,7 +232,15 @@ export default function CheckoutPage() {
         {validatedCoupon && <div className="mt-3 flex items-center justify-between gap-3 text-sm font-semibold text-emerald-700" role="status"><span>쿠폰이 적용되었어요. −{validatedCoupon.discountAmount.toLocaleString()}원</span><button type="button" onClick={() => { setCouponCode(""); setValidatedCoupon(null); }} className="min-h-11 shrink-0 text-xs underline underline-offset-2">적용 취소</button></div>}
       </section>
 
-      {amountDue > 0 && <section className="rounded-3xl border border-gray-100 p-5 shadow-sm"><h2 className="app-section-title text-gray-900">입금 정보</h2><label htmlFor="depositorName" className="mt-4 block text-sm font-semibold text-gray-700">입금자명</label><input id="depositorName" autoComplete="name" required value={depositorName} onChange={(event) => setDepositorName(event.target.value)} maxLength={80} className="mt-2 min-h-12 w-full rounded-xl border border-gray-200 px-3 text-gray-900" placeholder="실제 입금자 이름" /><p className="mt-2 text-xs leading-5 text-gray-500">주문 접수 후 계좌 정보가 표시됩니다. 주문 접수만으로 결제가 확정되거나 식물이 생성되지는 않습니다.</p></section>}
+      {amountDue > 0 && (
+        <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+          <h2 className="app-section-title text-gray-900">입금 정보</h2>
+          <label htmlFor="depositorName" className="mt-4 block text-sm font-semibold text-gray-700">입금자명</label>
+          <input id="depositorName" autoComplete="name" required value={depositorName} onChange={(event) => setDepositorName(event.target.value)} maxLength={80} className="mt-2 min-h-12 w-full rounded-xl border border-gray-200 px-3 text-gray-900" placeholder="실제 입금자 이름" />
+          <p className="mt-2 text-xs leading-5 text-gray-500">주문 접수 후 계좌 정보가 표시됩니다. 주문 접수만으로 결제가 확정되거나 식물이 생성되지는 않습니다.</p>
+          <p className="mt-3 rounded-2xl bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-700">입금 확인 후 <strong className="font-bold text-gray-900">10분~3시간 이내</strong>에 식물 매칭이 완료될 예정이에요.</p>
+        </section>
+      )}
       {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm leading-5 text-rose-800">{error}</p>}
       <button type="submit" disabled={busy} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white disabled:opacity-50">{busy ? "주문 처리 중…" : "계좌이체 주문 접수"}</button>
       <p className="text-center text-xs leading-5 text-gray-500">주문 접수 후 관리자가 입금을 확인해야 분양이 확정됩니다.</p>
