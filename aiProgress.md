@@ -3,6 +3,7 @@
 ## 2026-10-12
 
 - 2026-10-12 16:14:09 +09:00 — 체크아웃 UI에 대한 다른 AI의 변경사항을 검토하고 반영 대상으로 확인함. 주문 상태 및 쿠폰 완료 화면 카드 스타일·주문번호 표시·매칭 안내 변경을 포함하며 주문 처리 로직 변경은 없음. `npx tsc --noEmit`, `npm run lint`, `npm run build`, `git diff --check` 모두 통과. 사용자 미추적 파일 `PLANT_INFO.txt`는 유지하고 배포 커밋에 포함하지 않음.
+- 2026-10-12 16:16:01 +09:00 — 프론트 commit `12365a4fcf9156474a211e070e275c152b285ba9`가 Vercel production deployment `dpl_81B2nHaNk7jK5PdJ4ERmYDqnvc5T`로 `READY`가 됨. `wave-root-client.vercel.app` alias에 연결됐으며 체크아웃 경로 HTTP 200 확인.
 - 2026-10-12 — 체크아웃의 유료 주문·무료 주문 완료·주문 폼 카드를 앱 공통 흰색/연회색 카드 톤으로 통일함. 영문 상태 라벨을 제거하고 대기 문구를 “입금 대기 중”으로 변경했으며, 입금 확인 후 10분~3시간 내 식물 매칭 안내를 추가함. 유료·무료 주문번호는 작은 한 줄 말줄임 표시로 바꾸고 복사 동작을 유지함. `npx tsc --noEmit`, Next.js production build, `git diff --check` 통과. 전체 lint는 명령 실행 30초 제한으로 완료 확인을 못함. 브라우저 시각 검증은 미수행.
 - 2026-10-12 13:02:21 +09:00 — 프론트 변경을 commit `ec0a564`로 `wave_root_client` main에 푸시함. Vercel production deployment `dpl_752tGjBtBdsC6gVUJZskVumcpa76`가 해당 전체 SHA `ec0a564bb2babf706224283ee791ab8976c410c9`로 `READY`이며 `wave-root-client.vercel.app` alias가 이 배포를 가리키는 것을 확인함. 체크아웃 페이지 production 경로 HTTP 200을 교차 확인함. 프론트 lint, TypeScript 검사, production build 통과.
 - 분양 주문 완료 화면을 앱 공통 여백·정원 초록 톤에 맞추고 일반 유료 주문은 입금 대기/확인/확정/취소 안내 및 기존 계좌·취소·새 주문 액션을 유지함. 0원 주문에는 축하 문구, 복사 가능한 주문번호, 하단 최대 6시간 연결 안내와 “내 정원으로”만 있는 전용 화면을 적용함. `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` 통과. 브라우저 자동화 도구와 로그인 테스트 계정/전액 쿠폰이 없어 브라우저·0원 주문 실거래 검증은 미수행.
