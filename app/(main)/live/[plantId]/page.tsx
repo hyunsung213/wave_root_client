@@ -243,7 +243,7 @@ export default function LivePage() {
           </button>
         </header>
 
-        <section aria-label={`${plant.name} 실시간 카메라`} className="relative -mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border-y border-[#e7eadf] bg-[#171b16] shadow-[0_10px_28px_rgba(51,69,39,0.12)]">
+        <section aria-label={`${plant.name} 실시간 카메라`} className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#e7eadf] bg-[#171b16] shadow-[0_10px_28px_rgba(51,69,39,0.12)]">
           <div className="relative min-h-0 flex-1 overflow-hidden bg-[#171b16]" style={{ willChange: "transform", isolation: "isolate" }}>
             {plant.streamingUrl && (
               <img
