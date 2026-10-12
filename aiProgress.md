@@ -2,6 +2,7 @@
 
 ## 2026-10-12
 
+- 2026-10-12 13:02:21 +09:00 — 프론트 변경을 commit `ec0a564`로 `wave_root_client` main에 푸시함. Vercel production deployment `dpl_752tGjBtBdsC6gVUJZskVumcpa76`가 해당 전체 SHA `ec0a564bb2babf706224283ee791ab8976c410c9`로 `READY`이며 `wave-root-client.vercel.app` alias가 이 배포를 가리키는 것을 확인함. 체크아웃 페이지 production 경로 HTTP 200을 교차 확인함. 프론트 lint, TypeScript 검사, production build 통과.
 - 분양 주문 완료 화면을 앱 공통 여백·정원 초록 톤에 맞추고 일반 유료 주문은 입금 대기/확인/확정/취소 안내 및 기존 계좌·취소·새 주문 액션을 유지함. 0원 주문에는 축하 문구, 복사 가능한 주문번호, 하단 최대 6시간 연결 안내와 “내 정원으로”만 있는 전용 화면을 적용함. `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` 통과. 브라우저 자동화 도구와 로그인 테스트 계정/전액 쿠폰이 없어 브라우저·0원 주문 실거래 검증은 미수행.
 - 실시간 카메라 카드의 전폭 확장을 되돌려 좌우 여백과 전체 테두리·24px 둥근 모서리를 복원함. 스트림은 `object-cover`로 유지해 카드 내부를 채우며, 화면 비율에 따라 가장자리가 잘릴 수 있음.
 - 실시간 카메라 스트림 이미지를 `object-cover`로 변경해 기존 카드 너비를 유지하면서 보이는 영상 영역을 채우도록 함. 화면 비율에 따라 영상 가장자리가 잘릴 수 있음.
