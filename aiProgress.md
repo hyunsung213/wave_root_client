@@ -2,6 +2,8 @@
 
 ## 2026-10-11
 
+- 2026-10-11 — 실시간 화면을 앱의 정원 초록 톤을 살린 카드형 카메라 UI로 정리하고, 카드 하단에 “메모 남기기” 액션을 배치함. 스트림 상태·재연결·식물 전환 및 기존 성장 기록 시트는 유지함. 공통 하단 내비게이션을 safe area를 반영한 불투명 흰색 플로팅 바로 변경하고 본문 하단 여백을 조정함(유리/블러 효과 미적용). ESLint, TypeScript 및 Next.js production build, `git diff --check` 통과. 참고 스크린샷은 저장소에서 확인되지 않아 기존 UI 톤을 기준으로 구현함.
+
 - 2026-10-11 21:38:49 (+09:00) — 사용자가 다른 AI로 수정한 홈 정원 요약을 검토하고 프론트 `main`에 반영함. 변경 커밋 `68e3950`은 Vercel Production 배포 `dpl_DFE4RpHhjF2rmgqd7AueU5SSnuMo`에서 `READY`이며 `wave-root-client.vercel.app` 운영 alias가 연결된 것을 확인함. 홈 화면은 식물 수·평균 성장률·성장 기록·수확 횟수와 최신 성장 이벤트를 표시하고 센서 폴링을 사용하지 않음. Render 백엔드는 이번 변경에서 수정사항이 없으며 `/health`와 `/health/ready` 200, 쿠폰 API 비로그인 401, Vercel origin CORS preflight 204를 재확인함. 프론트 ESLint·TypeScript·production build 통과.
 - 2026-10-11 (+09:00) — 홈 화면의 물주기/토양수분 배너와 센서 요청을 제거하고 식물 수, 백엔드 작물별 `growthPercent` 평균, 성장 기록·수확 횟수 및 최신 성장 이벤트를 보여주는 정원 요약으로 교체함. 활동·통합 기록 API 실패는 독립 처리하고 최신 이벤트는 필요 시 식물별 API로 대체 조회하도록 해 부분 장애 시에도 이용 가능한 데이터를 표시함. 홈 성장 카드도 백엔드 성장률을 사용하고 누락 값은 `—`로 표시하도록 보완함. `npm run lint`, `npx tsc --noEmit`, `npm run build`, `git diff --check` 모두 통과. 실제 계정 화면 및 API 장애 주입은 실행하지 않음.
 - 2026-10-11 19:44:52 (+09:00) — 분양 checkout 주문·쿠폰 변경을 ESLint, TypeScript 검사, Next.js production build로 확인함. 커밋 `c1ad8e3`을 GitHub `main`에 push하고 Vercel production 배포 `dpl_HE75xGPNHyGP2E4v2zFW7vFiKCH5`가 SHA `c1ad8e3d1bef0530f047df87ebe52490118cdbf3`로 `READY`, 운영 도메인 연결 완료를 확인함. 백엔드 Render 운영 health/ready 200, 쿠폰 API 인증 응답 401, 프론트 origin CORS preflight 204를 확인함.

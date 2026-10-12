@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
 import { useCallback, useEffect, useState } from "react";
-import { Camera, ChevronDown, Edit3, X } from "lucide-react";
+import { Camera, ChevronDown, Edit3, Radio, RefreshCw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, PanInfo } from "framer-motion";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -227,11 +227,12 @@ export default function LivePage() {
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.2}
         onDragEnd={handleDragEnd}
-        className="relative flex flex-col h-full min-h-full w-full overflow-hidden bg-gray-900 cursor-grab active:cursor-grabbing"
+        className="relative flex h-full min-h-full w-full flex-col gap-5 overflow-hidden bg-[#f7f8f3] px-5 pb-5 pt-6"
       >
         {/* ── Background / Live Stream ── */}
         {/* Stream lives on its own compositing layer to keep playback smooth. */}
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ willChange: 'transform', isolation: 'isolate' as const }}>
+        <div className="relative z-0 shrink-0 overflow-hidden rounded-[28px] border border-[#e7eadf] bg-white shadow-[0_12px_35px_rgba(51,69,39,0.12)]">
+        <div className="relative aspect-video w-full overflow-hidden bg-[#20291f]" style={{ willChange: 'transform', isolation: 'isolate' as const }}>
           {plant.streamingUrl && (
             <img
               key={`${plant._id}:${videoRetry}:${plant.streamingUrl}`}
@@ -239,31 +240,50 @@ export default function LivePage() {
               alt={`${plant.name} 실시간 카메라 영상`}
               onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
               onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover"
               style={{ willChange: 'transform', transform: 'translateZ(0)' }}
             />
           )}
           {/* Top vignette for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/20" />
           {/* Subtle ambient color overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/10 via-transparent to-cyan-900/10" />
+        </div>
+
+        <section aria-label={`${plant.name} 실시간 카메라`} className="flex flex-col">
+          <div className="flex items-center justify-between gap-3 border-t border-[#f0f1ec] bg-white px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold tracking-[0.14em] text-[#92998c]">CURRENT PLANT</p>
+              <h2 className="mt-0.5 truncate text-lg font-extrabold tracking-tight text-[#283722]">{plant.name}</h2>
+            </div>
+            <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-extrabold ${videoStatus === "ready" ? "bg-[#edf6e7] text-[#507837]" : "bg-[#f2f3ef] text-[#7e8578]"}`}>
+              <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${videoStatus === "ready" ? "bg-[#6ea447]" : "bg-[#a6aca0]"}`} />
+              {videoStatus === "ready" ? "LIVE" : videoStatus === "error" ? "연결 확인" : videoStatus === "loading" ? "연결 중" : "카메라 없음"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 bg-white px-4 py-3">
+            <div>
+              <p className="text-sm font-bold text-[#34432d]">오늘의 성장 장면</p>
+              <p className="mt-0.5 text-xs text-[#899084]">지금 보이는 순간을 메모로 남겨보세요.</p>
+            </div>
+            {streamUrl && <button type="button" onClick={() => { void retryPlantStream(); }} aria-label="카메라 영상 새로고침" className="icon-button shrink-0 rounded-full bg-[#f4f6f0] text-[#607653] hover:bg-[#eaf0e3]"><RefreshCw size={17} aria-hidden="true" /></button>}
+          </div>
+        </section>
         </div>
 
 
         {/* 센서값 및 연결 상태 배너는 표시하지 않습니다. */}
         {/* ═══ TOP: compact plant name ═══ */}
-        <div className="relative z-20 flex justify-center px-6 pt-6">
+        <div className="relative z-20 -order-1 flex shrink-0 flex-col items-start px-1">
           <motion.div 
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
-            className="flex flex-col items-center"
+            className="flex flex-col items-start"
           >
-            <div className="max-w-full rounded-full border border-white/80 bg-white/95 px-3.5 py-1.5 shadow-lg backdrop-blur-sm">
-              <h2 className="max-w-[70vw] truncate text-xs font-extrabold tracking-tight text-[#496d2f]">
-                {plant.name}
-              </h2>
-            </div>
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#6b8f4e]"><Radio size={14} aria-hidden="true" /> Garden live</p>
+            <h1 className="text-[26px] font-black leading-tight tracking-[-0.04em] text-[#24351e]">실시간 돌봄</h1>
+            <p className="mt-1 text-sm font-medium text-[#788174]">카메라로 {plant.name}의 오늘을 살펴보세요.</p>
           </motion.div>
         </div>
 
@@ -272,7 +292,7 @@ export default function LivePage() {
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="absolute bottom-6 left-0 right-0 z-20 flex justify-center"
+          className="relative z-20 order-last mt-auto flex w-full shrink-0 justify-center"
         >
           {/* Record Button */}
           <motion.button 
@@ -280,29 +300,25 @@ export default function LivePage() {
             whileTap={{ scale: 0.92 }}
             aria-label={`${plant.name} 성장 기록 남기기`}
             onClick={() => { setRecordError(""); setImageCaptureFeedback(""); setIsRecordSheetOpen(true); }}
-            className="flex flex-col items-center gap-1.5"
+            className="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#5b873a] px-5 text-[15px] font-extrabold text-white shadow-[0_8px_18px_rgba(77,116,49,0.2)] transition-colors hover:bg-[#4f7732]"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/80 bg-[#eef7e6] text-[#496d2f] shadow-lg">
-              <Edit3 size={22} strokeWidth={2.2} aria-hidden="true" />
-            </div>
-            <span className="text-xs font-bold tracking-wide text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]">
-              기록
-            </span>
+            <Edit3 size={19} strokeWidth={2.3} aria-hidden="true" />
+            <span>메모 남기기</span>
           </motion.button>
 
         </motion.div>
 
         {/* 현재 식물 주변 최대 3개까지 가운데 정렬해 표시합니다. */}
         {myPlants && myPlants.length > 1 && (
-          <div role="group" aria-label="식물 전환" className="absolute bottom-[128px] left-0 right-0 z-20 flex justify-center gap-4">
+          <div className="relative z-20 order-1 flex w-full shrink-0 justify-center gap-2">
             {visiblePlants.map((p: Plant) => (
               <button type="button"
                 key={p._id}
                 onClick={() => router.replace(`/live/${p._id}`)}
                 aria-label={`${p.name} 화면으로 이동`}
                 aria-current={p._id === plantId ? "true" : undefined}
-                className="flex min-h-11 min-w-11 items-center justify-center"
-              ><span className={`block h-2 rounded-full ${p._id === plantId ? "w-5 bg-white" : "w-2 bg-white/40"}`} /></button>
+                className={`min-h-10 min-w-11 rounded-full px-4 text-xs font-bold ${p._id === plantId ? "bg-[#eaf3e3] text-[#496d2f]" : "bg-white text-[#888f82]"}`}
+              >{p.name}</button>
             ))}
           </div>
         )}

@@ -24,7 +24,7 @@ export default function BottomNav() {
   if (isSheetOpen) return null;
 
   return (
-    <nav aria-label="주요 메뉴" className="absolute bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] bg-white border-t border-[#e2ecc8] flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom)] z-50">
+    <nav aria-label="주요 메뉴" className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 flex h-16 items-center justify-around rounded-[22px] border border-[#e2ecc8] bg-white px-2 shadow-[0_10px_30px_rgba(48,68,35,0.14)]">
       {navItems.map((item) => {
         const Icon = item.icon;
         if (!item.path) {
