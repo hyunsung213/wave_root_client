@@ -228,7 +228,7 @@ export default function LivePage() {
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.2}
         onDragEnd={handleDragEnd}
-        className="relative flex h-full min-h-full w-full flex-col gap-3 overflow-hidden bg-white px-4 pb-4 pt-1"
+        className="relative flex h-full min-h-full w-full flex-col gap-2 overflow-hidden bg-white px-4 pb-3 pt-1"
       >
         <header className="app-page-header -mx-4 flex shrink-0 items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <h1 className="text-[26px] font-black tracking-tight text-[#6ea447]">싹키워</h1>
@@ -243,7 +243,7 @@ export default function LivePage() {
           </button>
         </header>
 
-        <section aria-label={`${plant.name} 실시간 카메라`} className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#e7eadf] bg-[#171b16] shadow-[0_10px_28px_rgba(51,69,39,0.12)]">
+        <section aria-label={`${plant.name} 실시간 카메라`} className="relative -mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[20px] border-y border-[#e7eadf] bg-[#171b16] shadow-[0_10px_28px_rgba(51,69,39,0.12)]">
           <div className="relative min-h-0 flex-1 overflow-hidden bg-[#171b16]" style={{ willChange: "transform", isolation: "isolate" }}>
             {plant.streamingUrl && (
               <img
@@ -276,12 +276,11 @@ export default function LivePage() {
           className="relative z-20 order-last flex w-full shrink-0 justify-center"
         >
           {/* Record Button */}
-          <motion.button 
-            whileHover={{ scale: 1.08 }}
+          <motion.button
             whileTap={{ scale: 0.92 }}
             aria-label={`${plant.name} 성장 기록 남기기`}
             onClick={() => { setRecordError(""); setImageCaptureFeedback(""); setIsRecordSheetOpen(true); }}
-            className="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#5b873a] px-5 text-[15px] font-extrabold text-white shadow-[0_8px_18px_rgba(77,116,49,0.2)] transition-colors hover:bg-[#4f7732]"
+            className="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#5b873a] px-5 text-[15px] font-extrabold text-white shadow-[0_8px_18px_rgba(77,116,49,0.2)]"
           >
             <Edit3 size={19} strokeWidth={2.3} aria-hidden="true" />
             <span>메모 남기기</span>
