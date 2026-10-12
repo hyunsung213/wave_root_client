@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, Clipboard, TicketCheck } from "lucide-react";
+import { Check, ChevronLeft, Clipboard, TicketCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { plantsData } from "@/lib/plantsData";
 import { useStore } from "@/store/useStore";
@@ -30,6 +30,7 @@ export default function CheckoutPage() {
   const subtotal = (plant?.price ?? 0) + PASS_PRICE;
   const amountDue = validatedCoupon?.amountDue ?? subtotal;
   const plantName = pendingPlantName?.trim() || (plant ? `우리집 ${plant.name}` : "");
+  const isFreeOrder = order?.amountDue === 0 && order.status !== "cancelled";
 
   useEffect(() => {
     let active = true;
@@ -125,20 +126,48 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="app-page-content min-h-full bg-white pb-4 pt-6">
-      <header className="flex items-center gap-2 pb-4">
+    <div className={`app-page-content min-h-full pb-4 pt-6 ${isFreeOrder ? "flex flex-col bg-[#fbfcf8]" : "bg-white"}`}>
+      {!isFreeOrder && <header className="flex items-center gap-2 pb-4">
         <button type="button" aria-label="분양 목록으로 돌아가기" onClick={() => router.push("/market")} className="icon-button -ml-2 rounded-full text-gray-800 hover:bg-gray-100">
           <ChevronLeft size={26} />
         </button>
         <h1 className="app-page-title text-gray-900">분양 주문</h1>
-      </header>
+      </header>}
 
       {order ? (
-        <div className="space-y-5">
+        isFreeOrder ? (
+          <div className="flex min-h-[calc(100dvh-10rem)] flex-1 flex-col">
+            <section className="flex flex-1 flex-col items-center justify-center py-10 text-center" aria-live="polite">
+              <div className="mb-7 grid h-24 w-24 place-items-center rounded-full bg-[#eaf4e1]">
+                <div className="grid h-[4.25rem] w-[4.25rem] place-items-center rounded-full bg-[#6ea447] text-white shadow-[0_12px_28px_rgba(110,164,71,0.24)]">
+                  <Check size={38} strokeWidth={3} aria-hidden="true" />
+                </div>
+              </div>
+              <p className="text-[11px] font-black tracking-[.22em] text-[#648b45]">COUPON ORDER COMPLETE</p>
+              <h2 className="mt-3 text-[28px] font-black leading-tight tracking-[-.04em] text-gray-900">축하해요!<br />쿠폰 주문이 완료됐어요</h2>
+              <p className="mt-3 max-w-[17rem] text-sm leading-6 text-gray-600">쿠폰을 사용해 결제 금액 0원으로 주문했어요.</p>
+              <div className="mt-8 flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl border border-[#e8eddf] bg-white px-4 py-3.5 text-left shadow-[0_8px_24px_rgba(44,66,31,0.04)]">
+                <div className="min-w-0">
+                  <span className="block text-xs font-semibold text-gray-500">주문번호</span>
+                  <strong className="mt-1 block break-all text-base font-extrabold tracking-wide text-gray-900">{order.orderNumber}</strong>
+                </div>
+                <button type="button" onClick={copyOrderNumber} aria-label="주문번호 복사" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f3f6ef] text-[#527d36] transition-colors hover:bg-[#eaf2e2]">
+                  <Clipboard size={18} />
+                </button>
+              </div>
+            </section>
+            <div className="mt-auto space-y-4 pb-3">
+              <button type="button" onClick={() => router.push("/home")} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white shadow-[0_8px_20px_rgba(110,164,71,0.2)] transition-colors hover:bg-[#5b913e]">내 정원으로</button>
+              <p className="rounded-2xl border border-[#e8eddf] bg-white px-4 py-3.5 text-center text-xs leading-5 text-gray-600">
+                주문 확인 후 최대 <strong className="font-extrabold text-[#527d36]">6시간 안에</strong> 식물이 내 정원에 연결돼요.
+              </p>
+            </div>
+          </div>
+        ) : <div className="space-y-5">
           <section className="rounded-[28px] border border-emerald-200 bg-emerald-50 p-6">
-            <p className="text-xs font-black tracking-[.18em] text-emerald-700">ORDER RECEIVED</p>
-            <h2 className="mt-2 text-2xl font-black text-gray-900">{order.status === "cancelled" ? "주문이 취소되었어요" : order.status === "confirmed" ? "분양이 확정되었어요" : "주문이 접수되었어요"}</h2>
-            <p className="mt-2 text-sm leading-6 text-gray-700">{order.status === "confirmed" ? "입금 확인이 완료되어 식물이 내 정원에 추가되었어요." : order.status === "cancelled" ? "취소된 주문은 다시 입금하지 마세요." : "입금 확인 후 식물이 내 정원에 추가됩니다. 확인 전에는 식물이 생성되지 않아요."}</p>
+            <p className="text-xs font-black tracking-[.18em] text-emerald-700">{order.status === "cancelled" ? "ORDER CANCELLED" : order.status === "confirmed" ? "ADOPTION CONFIRMED" : order.status === "confirming" ? "DEPOSIT CHECK" : "WAITING FOR DEPOSIT"}</p>
+            <h2 className="mt-2 text-2xl font-black text-gray-900">{order.status === "cancelled" ? "주문이 취소되었어요" : order.status === "confirmed" ? "분양이 확정되었어요" : order.status === "confirming" ? "입금 내역을 확인하고 있어요" : "입금을 기다리고 있어요"}</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-700">{order.status === "confirmed" ? "입금 확인이 완료되어 식물이 내 정원에 추가되었어요." : order.status === "cancelled" ? "취소된 주문은 다시 입금하지 마세요." : order.status === "confirming" ? "확인이 끝나면 식물이 내 정원에 추가됩니다." : "입금 확인 후 식물이 내 정원에 추가됩니다. 확인 전에는 식물이 생성되지 않아요."}</p>
             <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-white p-4">
               <div><span className="block text-xs text-gray-500">주문번호</span><strong className="mt-1 block text-lg tracking-wide text-gray-900">{order.orderNumber}</strong></div>
               <button type="button" onClick={copyOrderNumber} aria-label="주문번호 복사" className="grid h-11 w-11 place-items-center rounded-xl bg-gray-100 text-gray-700"><Clipboard size={18} /></button>
@@ -155,8 +184,8 @@ export default function CheckoutPage() {
               </dl>
               <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">입금자명은 <b>{order.depositorName || depositorName}</b>으로 입력해주세요. 입금 확인 전까지 주문은 대기 상태입니다.</p>
             </section>
-          ) : order.status !== "cancelled" && order.status !== "confirmed" ? (
-            <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5"><h2 className="app-section-title text-emerald-900">결제 금액 0원</h2><p className="mt-2 text-sm leading-6 text-emerald-900">쿠폰으로 전액 적용되었어요. 운영자가 주문을 확인한 뒤 식물이 정원에 추가됩니다.</p></section>
+          ) : order.status !== "cancelled" && order.status !== "confirmed" && order.amountDue > 0 ? (
+            <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5"><h2 className="app-section-title text-amber-900">계좌 정보를 확인하고 있어요</h2><p className="mt-2 text-sm leading-6 text-amber-900">잠시 후 다시 확인해주세요. 주문번호로 주문 상태를 확인할 수 있어요.</p></section>
           ) : null}
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
           {order.status === "pending" && <button type="button" disabled={busy} onClick={() => { setError(""); setCancelSheetOpen(true); }} className="min-h-11 w-full rounded-xl border border-rose-200 font-bold text-rose-700 disabled:opacity-50">주문 취소</button>}
