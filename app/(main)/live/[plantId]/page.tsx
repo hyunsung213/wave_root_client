@@ -252,7 +252,7 @@ export default function LivePage() {
                 alt={`${plant.name} 실시간 카메라 영상`}
                 onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
                 onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
-                className="absolute inset-0 h-full w-full object-contain"
+                className="absolute inset-0 h-full w-full object-cover"
                 style={{ willChange: "transform", transform: "translateZ(0)" }}
               />
             )}
