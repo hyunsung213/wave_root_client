@@ -1,5 +1,10 @@
 # AI 작업 기록
 
+## 2026-10-14
+
+- 2026-10-14 11:45:25 +09:00 — 체크아웃 쿠폰 사용 가능 목록과 할인 합계에 백엔드의 선택적 한국어 쿠폰 이름을 반영함. 프론트 ESLint, TypeScript 검사, Next.js production build 및 `git diff --check` 통과. `PLANT_INFO.txt` 미추적 파일은 보존함.
+- Checkout의 사용 가능 쿠폰과 할인 합계 라벨에서 선택적 한국어 쿠폰 이름을 표시하도록 API 타입과 UI를 확장함. ESLint, TypeScript 검사, Next.js production build 통과. 기존 미추적 `PLANT_INFO.txt`는 보존함.
+
 ## 2026-10-12
 
 - 2026-10-12 16:14:09 +09:00 — 체크아웃 UI에 대한 다른 AI의 변경사항을 검토하고 반영 대상으로 확인함. 주문 상태 및 쿠폰 완료 화면 카드 스타일·주문번호 표시·매칭 안내 변경을 포함하며 주문 처리 로직 변경은 없음. `npx tsc --noEmit`, `npm run lint`, `npm run build`, `git diff --check` 모두 통과. 사용자 미추적 파일 `PLANT_INFO.txt`는 유지하고 배포 커밋에 포함하지 않음.

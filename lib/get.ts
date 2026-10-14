@@ -58,6 +58,7 @@ export async function getNotifications(page = 1, limit = 30, unreadOnly = false)
 
 export interface AvailableCoupon {
   code: string;
+  name?: string | null;
   discountType: "percent" | "fixed";
   discountValue: number;
   expiresAt: string | null;

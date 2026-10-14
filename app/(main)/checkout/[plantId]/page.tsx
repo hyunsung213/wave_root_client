@@ -21,7 +21,7 @@ export default function CheckoutPage() {
   const [couponLoadState, setCouponLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [couponRefreshKey, setCouponRefreshKey] = useState(0);
   const [couponCode, setCouponCode] = useState("");
-  const [validatedCoupon, setValidatedCoupon] = useState<{ code: string; discountAmount: number; amountDue: number } | null>(null);
+  const [validatedCoupon, setValidatedCoupon] = useState<{ code: string; name?: string | null; discountAmount: number; amountDue: number } | null>(null);
   const [depositorName, setDepositorName] = useState("");
   const [order, setOrder] = useState<CheckoutOrder | null>(null);
   const [cancelSheetOpen, setCancelSheetOpen] = useState(false);
@@ -69,7 +69,7 @@ export default function CheckoutPage() {
     setBusy(true);
     try {
       const result = await validateAdoptionCoupon(plant.id, code.trim());
-      setValidatedCoupon({ code: result.coupon.code, discountAmount: result.discountAmount, amountDue: result.amountDue });
+      setValidatedCoupon({ code: result.coupon.code, name: result.coupon.name, discountAmount: result.discountAmount, amountDue: result.amountDue });
       setCouponCode(result.coupon.code);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "쿠폰을 확인하지 못했어요.");
@@ -209,7 +209,7 @@ export default function CheckoutPage() {
           <div className="flex justify-between gap-3"><dt className="text-gray-600">작물 분양</dt><dd className="font-semibold text-gray-900">{plant.price.toLocaleString()}원</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-gray-600">싹키워 이용권 1개월</dt><dd className="font-semibold text-gray-900">{PASS_PRICE.toLocaleString()}원</dd></div>
           <div className="flex justify-between gap-3 border-t border-gray-100 pt-3"><dt className="font-bold text-gray-900">소계</dt><dd className="font-bold text-gray-900">{subtotal.toLocaleString()}원</dd></div>
-          {validatedCoupon && <div className="flex justify-between gap-3 text-emerald-700"><dt>쿠폰 할인 ({validatedCoupon.code})</dt><dd className="font-bold">−{validatedCoupon.discountAmount.toLocaleString()}원</dd></div>}
+          {validatedCoupon && <div className="flex justify-between gap-3 text-emerald-700"><dt>쿠폰 할인 ({validatedCoupon.name || validatedCoupon.code})</dt><dd className="font-bold">−{validatedCoupon.discountAmount.toLocaleString()}원</dd></div>}
           <div className="flex justify-between gap-3 border-t border-gray-100 pt-3"><dt className="font-bold text-gray-900">결제 예정 금액</dt><dd className="text-lg font-extrabold text-[#5b873a]">{amountDue.toLocaleString()}원</dd></div>
         </dl>
       </section>
@@ -223,7 +223,7 @@ export default function CheckoutPage() {
         {couponLoadState === "ready" && coupons.length > 0 && <div className="mt-4 space-y-2" aria-label="사용 가능한 쿠폰 목록">{coupons.map((coupon) => {
           const applied = validatedCoupon?.code === coupon.code;
           return <button key={coupon.code} type="button" disabled={busy} aria-pressed={applied} onClick={() => applyCoupon(coupon.code)} className={`flex min-h-20 w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors disabled:opacity-60 ${applied ? "border-[#6ea447] bg-[#f0f7e9]" : "border-[#dfe8d7] bg-[#f9fbf6] hover:border-[#6ea447]"}`}>
-            <span className="min-w-0"><span className="block text-lg font-black text-[#527d36]">{coupon.discountType === "percent" ? `${coupon.discountValue}% 할인` : `${coupon.discountValue.toLocaleString()}원 할인`}</span><span className="mt-0.5 block truncate text-xs font-semibold text-gray-600">{coupon.code}{coupon.expiresAt ? ` · ${new Date(coupon.expiresAt).toLocaleDateString("ko-KR")}까지` : " · 기간 제한 없음"}</span></span>
+            <span className="min-w-0"><span className="block truncate text-sm font-extrabold text-[#527d36]">{coupon.name || (coupon.discountType === "percent" ? `${coupon.discountValue}% 할인` : `${coupon.discountValue.toLocaleString()}원 할인`)}</span><span className="mt-0.5 block truncate text-xs font-semibold text-gray-600">{coupon.code}{coupon.expiresAt ? ` · ${new Date(coupon.expiresAt).toLocaleDateString("ko-KR")}까지` : " · 기간 제한 없음"}</span></span>
             <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${applied ? "bg-[#6ea447] text-white" : "bg-white text-[#527d36]"}`}>{applied ? "적용됨" : "적용하기"}</span>
           </button>;
         })}</div>}

@@ -39,6 +39,7 @@ export interface CheckoutOrder {
   discountAmount: number;
   amountDue: number;
   couponCode?: string | null;
+  couponName?: string | null;
   depositDetails?: { bankName: string | null; accountNumber: string | null; accountHolder: string | null };
   status: "pending" | "confirming" | "confirmed" | "cancelled";
 }
@@ -56,7 +57,7 @@ export async function createAdoptionOrder(data: {
 export async function validateAdoptionCoupon(productId: string, code: string) {
   const res = await api.post<{
     success: boolean;
-    coupon: { code: string; discountType: "percent" | "fixed"; discountValue: number };
+    coupon: { code: string; name?: string | null; discountType: "percent" | "fixed"; discountValue: number };
     subtotal: number;
     discountAmount: number;
     amountDue: number;
