@@ -2,6 +2,7 @@
 
 ## 2026-10-14
 
+- 2026-10-14 11:48:17 +09:00 — 프론트 commit `2a1721572478b53e1c4482180b6b0672d6a4095d`의 Vercel production 배포 `dpl_68FFVPKdfAFbcqMgJzK4coUNm8tf`가 `READY`이며 운영 alias `wave-root-client.vercel.app`에 연결됨. 체크아웃 경로 HTTP 200 확인.
 - 2026-10-14 11:45:25 +09:00 — 체크아웃 쿠폰 사용 가능 목록과 할인 합계에 백엔드의 선택적 한국어 쿠폰 이름을 반영함. 프론트 ESLint, TypeScript 검사, Next.js production build 및 `git diff --check` 통과. `PLANT_INFO.txt` 미추적 파일은 보존함.
 - Checkout의 사용 가능 쿠폰과 할인 합계 라벨에서 선택적 한국어 쿠폰 이름을 표시하도록 API 타입과 UI를 확장함. ESLint, TypeScript 검사, Next.js production build 통과. 기존 미추적 `PLANT_INFO.txt`는 보존함.
 
