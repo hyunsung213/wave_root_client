@@ -15,6 +15,8 @@ import type { Plant, User } from "@/store/useStore";
 import { getErrorMessage } from "@/lib/errors";
 import PullToRefreshStatus from "@/components/ui/PullToRefreshStatus";
 import { usePullToRefresh } from "@/lib/usePullToRefresh";
+import BrandLogo from "@/components/layout/BrandLogo";
+import { getPlantImage } from "@/lib/plantImages";
 
 const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
 
@@ -69,13 +71,6 @@ export default function MyPage() {
     
     fetchData();
   }, [retryCount, setStorePlants]);
-
-  const getPlantImage = (type: string = "") => {
-    if (type.includes("토마토")) return "/plants/tomato.png";
-    if (type.includes("바질")) return "/plants/basil.png";
-    if (type.includes("상추")) return "/plants/lettuce.png";
-    return "/plants/tomato.png";
-  };
 
   const handlePlantClick = (plant: Plant) => {
     setActionError("");
@@ -134,7 +129,7 @@ export default function MyPage() {
       <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
       <header className="app-page-header flex items-center justify-between">
-        <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
+        <h1 aria-label="싹키워"><BrandLogo /></h1>
         <div className="flex gap-3 text-gray-500">
           <button type="button" aria-label="새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button"><RefreshCw size={20} /></button>
           <button aria-label="알림" onClick={() => router.push('/notifications')} className="icon-button hover:text-gray-800 transition-colors relative">

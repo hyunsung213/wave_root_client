@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sprout, Mail, Lock, Eye, EyeOff, User, Phone } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, Phone } from "lucide-react";
 import { signup } from "@/lib/post";
 import { getErrorMessage } from "@/lib/errors";
+import BrandLogo from "@/components/layout/BrandLogo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -63,9 +64,8 @@ export default function SignupPage() {
 
   return (
     <div className="app-auth-content flex h-full flex-col items-center overflow-y-auto bg-white">
-      <div className="flex flex-col items-center mt-8 mb-8">
-        <Sprout size={50} className="text-sprout-500 mb-2" />
-        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">싹키워</h1>
+      <div className="mt-4 mb-8">
+        <BrandLogo width={180} height={80} priority />
       </div>
 
       <div className="w-full flex justify-center mb-6">

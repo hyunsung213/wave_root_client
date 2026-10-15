@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Sprout } from "lucide-react";
 import { getUserMe } from "@/lib/get";
 import { useStore } from "@/store/useStore";
+import BrandLogo from "@/components/layout/BrandLogo";
 
 export default function SplashPage() {
   const router = useRouter();
@@ -52,8 +52,9 @@ export default function SplashPage() {
         transition={{ duration: 0.5 }}
         className="flex flex-col items-center"
       >
-        <Sprout size={80} className="text-sprout-500 mb-4" />
-        <h1 className="text-4xl font-extrabold text-gray-800 tracking-tight mb-2">싹키워</h1>
+        <h1 className="mb-2" aria-label="싹키워">
+          <BrandLogo width={200} height={100} priority />
+        </h1>
         <p className="text-gray-500 text-sm">식물과 함께 건강한 일상을 시작해요</p>
       </motion.div>
 

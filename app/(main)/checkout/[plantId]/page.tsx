@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Check, ChevronLeft, Clipboard, TicketCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { plantsData } from "@/lib/plantsData";
+import { getPlantImage } from "@/lib/plantImages";
 import { useStore } from "@/store/useStore";
 import { getMyCoupons, getMyOrder, type AvailableCoupon } from "@/lib/get";
 import { cancelAdoptionOrder, createAdoptionOrder, validateAdoptionCoupon, type CheckoutOrder } from "@/lib/post";
@@ -194,7 +195,7 @@ export default function CheckoutPage() {
       ) : <form onSubmit={submitOrder} className="space-y-5">
       <section className="flex items-center gap-4 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="relative h-20 w-20 shrink-0 rounded-2xl bg-gray-50">
-          <Image src={plant.imageUrl} alt={plant.name} fill sizes="80px" className="object-contain p-2" />
+          <Image src={getPlantImage(plant.id)} alt={plant.name} fill sizes="80px" className="object-contain p-2" />
         </div>
         <div className="min-w-0">
           <h2 className="truncate text-lg font-extrabold text-gray-900">{plant.name}</h2>

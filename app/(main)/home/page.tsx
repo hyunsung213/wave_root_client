@@ -8,7 +8,9 @@ import { getActivity, getEvents, getPlants, getPlantsWithRecords } from "@/lib/g
 import { useStore, type Plant } from "@/store/useStore";
 import { RequestError } from "@/components/ui/RequestState";
 import PullToRefreshStatus from "@/components/ui/PullToRefreshStatus";
+import BrandLogo from "@/components/layout/BrandLogo";
 import { usePullToRefresh } from "@/lib/usePullToRefresh";
+import { getPlantImage } from "@/lib/plantImages";
 
 interface GrowthRecord {
   _id?: string;
@@ -175,19 +177,12 @@ export default function HomePage() {
 
   const formatGrowthDate = (event: GrowthRecord) => formatEventDate(event.eventDate || event.createdAt);
 
-  const getPlantImage = (type: string = "") => {
-    if (type.includes("토마토")) return "/plants/tomato.png";
-    if (type.includes("바질")) return "/plants/basil.png";
-    if (type.includes("상추")) return "/plants/lettuce.png";
-    return "/plants/tomato.png";
-  };
-
   return (
     <div className="flex flex-col bg-white min-h-full">
       <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
       <header className="app-page-header flex items-center justify-between">
-        <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
+        <h1 aria-label="싹키워"><BrandLogo /></h1>
         <div className="flex gap-3 text-gray-500">
           <button type="button" aria-label="새로고침" onClick={() => setRetryCount((value) => value + 1)} className="icon-button"><RefreshCw size={20} /></button>
           <button aria-label="알림" onClick={() => router.push('/notifications')} className="icon-button hover:text-gray-800 transition-colors relative">

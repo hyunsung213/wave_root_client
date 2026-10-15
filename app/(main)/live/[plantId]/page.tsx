@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
 import { useCallback, useEffect, useState } from "react";
-import { Camera, ChevronDown, Edit3, RefreshCw, X } from "lucide-react";
+import { Camera, ChevronDown, Edit3, Minus, Plus, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, PanInfo } from "framer-motion";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -11,11 +11,13 @@ import { getPlantById } from "@/lib/get";
 import { createEvent } from "@/lib/post";
 import { useStore, type Plant } from "@/store/useStore";
 import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
+import BrandLogo from "@/components/layout/BrandLogo";
 
 export default function LivePage() {
   const params = useParams();
   const router = useRouter();
   const plantId = params.plantId;
+  const activePlantKey = typeof plantId === "string" ? plantId : Array.isArray(plantId) ? plantId.join("/") : "";
   
   // 식물 데이터 가져오기
   const myPlants = useStore((state) => state.myPlants);
@@ -44,6 +46,11 @@ export default function LivePage() {
   const activeRecordImage = recordImage?.plantId === plantId ? recordImage : null;
   const [imageCaptureLoading, setImageCaptureLoading] = useState(false);
   const [imageCaptureFeedback, setImageCaptureFeedback] = useState("");
+  const [videoView, setVideoView] = useState({ plantId: activePlantKey, rotation: 0, zoom: 100 });
+  const videoRotation = videoView.plantId === activePlantKey ? videoView.rotation : 0;
+  const videoZoom = videoView.plantId === activePlantKey ? videoView.zoom : 100;
+  const updateVideoRotation = (rotation: number) => setVideoView({ plantId: activePlantKey, rotation, zoom: videoZoom });
+  const updateVideoZoom = (zoom: number) => setVideoView({ plantId: activePlantKey, rotation: videoRotation, zoom });
 
   useEffect(() => {
     const previewUrl = recordImage?.previewUrl;
@@ -213,7 +220,7 @@ export default function LivePage() {
 
   if (!plant) return (
     <div className="flex h-full flex-col items-center justify-center gap-4 bg-white px-6 text-center text-gray-800">
-      <h1 className="text-[26px] font-black tracking-tight text-[#6ea447]">싹키워</h1>
+      <h1 aria-label="싹키워"><BrandLogo /></h1>
       <p role={plantError ? "alert" : "status"}>{plantLoading ? "식물 정보를 불러오는 중이에요…" : "식물 정보를 찾지 못했어요."}</p>
       {!plantLoading && <button type="button" onClick={() => { if (typeof plantId === "string") setPlantRequest({ id: plantId, status: "loading" }); setPlantRetry((value) => value + 1); }} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">다시 시도</button>}
       {!plantLoading && <button type="button" onClick={() => router.push("/home")} className="min-h-11 px-5 font-semibold text-gray-700">홈으로 이동</button>}
@@ -231,7 +238,7 @@ export default function LivePage() {
         className="relative flex h-full min-h-full w-full flex-col gap-2 overflow-hidden bg-white px-4 pb-3 pt-1"
       >
         <header className="app-page-header -mx-4 flex shrink-0 items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <h1 className="text-[26px] font-black tracking-tight text-[#6ea447]">싹키워</h1>
+          <h1 aria-label="싹키워"><BrandLogo /></h1>
           <button
             type="button"
             onClick={() => { void retryPlantStream(); }}
@@ -253,7 +260,7 @@ export default function LivePage() {
                 onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
                 onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
                 className="absolute inset-0 h-full w-full object-cover"
-                style={{ willChange: "transform", transform: "translateZ(0)" }}
+                style={{ willChange: "transform", transform: `translateZ(0) rotate(${videoRotation}deg) scale(${videoZoom / 100})`, transition: "transform 180ms ease-out" }}
               />
             )}
             {videoStatus !== "ready" && (
@@ -265,6 +272,13 @@ export default function LivePage() {
               <span aria-hidden="true" className={`h-2 w-2 rounded-full ${videoStatus === "ready" ? "animate-pulse bg-red-500" : "bg-gray-400"}`} />
               {videoStatus === "ready" ? "LIVE" : videoStatus === "error" ? "연결 확인" : videoStatus === "loading" ? "연결 중" : "카메라 없음"}
             </span>
+            <div role="group" aria-label="영상 화면 조작" className="absolute bottom-3 right-3 flex items-center gap-1 rounded-2xl border border-white/15 bg-[#11180f]/85 p-1 text-white shadow-lg backdrop-blur-sm">
+              <button type="button" aria-label="영상 90도 왼쪽 회전" onClick={() => updateVideoRotation((videoRotation + 270) % 360)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><RotateCcw size={18} aria-hidden="true" /></button>
+              <button type="button" aria-label="영상 축소" onClick={() => updateVideoZoom(Math.max(100, videoZoom - 25))} disabled={videoZoom <= 100} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Minus size={18} aria-hidden="true" /></button>
+              <span aria-live="polite" className="min-w-10 text-center text-xs font-bold tabular-nums">{videoZoom}%</span>
+              <button type="button" aria-label="영상 확대" onClick={() => updateVideoZoom(Math.min(200, videoZoom + 25))} disabled={videoZoom >= 200} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Plus size={18} aria-hidden="true" /></button>
+              <button type="button" aria-label="영상 90도 오른쪽 회전" onClick={() => updateVideoRotation((videoRotation + 90) % 360)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><RotateCw size={18} aria-hidden="true" /></button>
+            </div>
           </div>
         </section>
 

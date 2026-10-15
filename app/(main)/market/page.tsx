@@ -6,10 +6,21 @@ import Image from "next/image";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { plantsData } from "@/lib/plantsData";
+import { getPlantImage } from "@/lib/plantImages";
 import { useStore } from "@/store/useStore";
 import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
+import BrandLogo from "@/components/layout/BrandLogo";
 
 const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
+
+type MarketCategoryId = "all" | "leafy-greens" | "herbs" | "edible-flowers";
+
+const marketCategories: { id: MarketCategoryId; label: string; plantIds: readonly string[] | null }[] = [
+  { id: "all", label: "전체", plantIds: null },
+  { id: "leafy-greens", label: "잎채소", plantIds: ["lettuce", "romaine", "arugula", "green_oakleaf_lettuce", "butterhead", "tatsoi"] },
+  { id: "herbs", label: "허브", plantIds: ["basil"] },
+  { id: "edible-flowers", label: "식용꽃", plantIds: ["marigold", "nasturtium"] },
+] as const;
 
 export default function MarketPage() {
   const router = useRouter();
@@ -21,9 +32,13 @@ export default function MarketPage() {
   const [customPlantName, setCustomPlantName] = useState("");
   const [nameError, setNameError] = useState("");
   const [sortBy, setSortBy] = useState<"recommended" | "price">("recommended");
+  const [selectedCategory, setSelectedCategory] = useState<MarketCategoryId>("all");
 
-  const sortedPlants =
-    sortBy === "price" ? [...plantsData].sort((a, b) => a.price - b.price) : plantsData;
+  const category = marketCategories.find((item) => item.id === selectedCategory) ?? marketCategories[0];
+  const categoryPlants = category.plantIds
+    ? plantsData.filter((plant) => category.plantIds?.includes(plant.id))
+    : plantsData;
+  const sortedPlants = sortBy === "price" ? [...categoryPlants].sort((a, b) => a.price - b.price) : categoryPlants;
 
   // 식물 클릭 시 Bottom Sheet 오픈
   const openSheet = (plant: typeof plantsData[0]) => {
@@ -56,7 +71,7 @@ export default function MarketPage() {
       <div className="app-page-content flex min-h-full flex-col bg-white pb-6 pt-6">
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-[26px] font-black text-[#6ea447] tracking-tight">싹키워</h1>
+            <h1 aria-label="싹키워"><BrandLogo /></h1>
           </div>
           <div className="flex gap-3 text-gray-400">
             <button aria-label="알림" onClick={() => router.push('/notifications')} className="icon-button hover:text-gray-600 transition-colors relative">
@@ -91,8 +106,26 @@ export default function MarketPage() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-xs font-bold text-gray-400">{plantsData.length}종</span>
+        <div role="group" aria-label="분양 카테고리" className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1">
+          {marketCategories.map((item) => {
+            const isSelected = item.id === selectedCategory;
+            return (
+              <button
+                key={item.id}
+                id={`market-category-${item.id}`}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => setSelectedCategory(item.id)}
+                className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-bold transition-colors ${isSelected ? "border-[#5b873a] bg-[#5b873a] text-white" : "border-[#e5e9df] bg-white text-gray-600"}`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mb-3 flex justify-between items-center">
+          <span className="text-xs font-bold text-gray-400">{sortedPlants.length}종</span>
           <button
             onClick={() => setSortBy(sortBy === "recommended" ? "price" : "recommended")}
             aria-label={sortBy === "recommended" ? "추천순 정렬, 가격 낮은순으로 변경" : "가격 낮은순 정렬, 추천순으로 변경"}
@@ -103,7 +136,7 @@ export default function MarketPage() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div id="market-plant-list" aria-label={`${category.label} 상품`} className="flex flex-col gap-4">
           {sortedPlants.map((plant) => (
             <button type="button"
               key={plant.id} 
@@ -112,7 +145,7 @@ export default function MarketPage() {
             >
               <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center shrink-0 relative overflow-hidden border border-gray-100">
                 <Image 
-                  src={plant.imageUrl} 
+                  src={getPlantImage(plant.id)}
                   alt={plant.name} 
                   fill
                   sizes="80px"
@@ -133,6 +166,12 @@ export default function MarketPage() {
               </div>
             </button>
           ))}
+          {sortedPlants.length === 0 && (
+            <div className="rounded-3xl border border-dashed border-[#dce5d4] bg-[#f8faf5] px-5 py-10 text-center">
+              <p className="font-bold text-gray-800">이 카테고리에 표시할 상품이 없어요</p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-500">다른 카테고리에서 식물을 확인해 보세요.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -155,7 +194,7 @@ export default function MarketPage() {
           <>
                   <div className="w-full h-36 bg-gray-50 rounded-3xl relative mb-5 border border-gray-100 shrink-0 mt-1">
                     <Image 
-                      src={selectedPlant.imageUrl} 
+                      src={getPlantImage(selectedPlant.id)}
                       alt={selectedPlant.name}
                       fill
                       sizes="(max-width: 400px) 100vw, 400px"
@@ -198,11 +237,28 @@ export default function MarketPage() {
                       </span>
                     </div>
                     <div className="h-px bg-gray-200"></div>
+                    <div className="flex justify-between items-center gap-3">
+                      <span className="text-sm font-bold text-gray-500 shrink-0">첫 수확 예상</span>
+                      <span className="text-sm font-extrabold text-gray-800">파종 후 약 {selectedPlant.timeToHarvest}일</span>
+                    </div>
+                    <div className="h-px bg-gray-200"></div>
+                    <div className="flex justify-between items-start gap-3">
+                      <span className="text-sm font-bold text-gray-500 shrink-0">적정 온도</span>
+                      <span className="text-right text-sm font-extrabold text-gray-800">{selectedPlant.optimalTemperature}</span>
+                    </div>
+                    <div className="h-px bg-gray-200"></div>
+                    <div>
+                      <h4 className="mb-1 text-sm font-bold text-gray-500">재배 관리</h4>
+                      <p className="text-sm font-medium leading-relaxed text-gray-800">{selectedPlant.wateringCycle}</p>
+                    </div>
+                    <div className="h-px bg-gray-200"></div>
                     <div>
                       <h4 className="text-sm font-bold text-gray-500 mb-2">식물 특징</h4>
-                      <p className="text-sm font-medium leading-relaxed text-gray-800">
-                        {selectedPlant.characteristics}
-                      </p>
+                      <div className="space-y-3 text-sm font-medium leading-relaxed text-gray-800">
+                        {selectedPlant.characteristics.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => (
+                          <p key={`${selectedPlant.id}-characteristic-${index}`}>{paragraph}</p>
+                        ))}
+                      </div>
                     </div>
                   </div>
 

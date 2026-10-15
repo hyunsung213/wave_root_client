@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { BRAND_LOGO_SRC } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -9,6 +10,6 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#6ea447",
-    icons: [{ src: "/images/logo_ssakiwoe.png", sizes: "any", type: "image/png" }],
+    icons: [{ src: BRAND_LOGO_SRC, sizes: "any", type: "image/png" }],
   };
 }

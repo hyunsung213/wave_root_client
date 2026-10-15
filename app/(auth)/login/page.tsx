@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { login } from "@/lib/post";
 import { useStore } from "@/store/useStore";
 import { getErrorMessage } from "@/lib/errors";
+import BrandLogo from "@/components/layout/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -69,14 +69,7 @@ export default function LoginPage() {
   return (
     <div className="app-auth-content flex h-full flex-col items-center overflow-y-auto bg-white">
       <div className="flex flex-col items-center mt-12 mb-10 w-full relative h-[100px]">
-        <Image 
-          src="/images/logo_ssakiwoe.png" 
-          alt="싹키워 로고" 
-          fill
-          sizes="(max-width: 400px) 100vw, 400px"
-          priority
-          className="object-contain"
-        />
+        <BrandLogo width={200} height={100} priority />
       </div>
 
       <div className="w-full flex justify-center mb-6">

@@ -177,7 +177,7 @@ export default function BottomSheet({
                   <h3 id={titleId} className="app-page-title text-gray-900">{title || "상세 내용"}</h3>
                   {description && <p id={descriptionId} className="app-body-text mt-1 font-medium text-gray-600">{description}</p>}
                 </div>
-                <button ref={closeRef} type="button" onClick={closeSheet} aria-label="닫기" className="icon-button -mr-2 -mt-2 rounded-full text-gray-700 hover:bg-gray-100">×</button>
+                <button ref={closeRef} type="button" onClick={closeSheet} aria-label="닫기" className="-mr-2 -mt-2 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-3xl leading-none text-gray-700 transition-colors hover:bg-gray-100">×</button>
               </div>
 
               <div className="app-sheet-gutter min-h-0 flex-1 overflow-y-auto pb-6 overscroll-contain">
