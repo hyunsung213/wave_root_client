@@ -9,8 +9,8 @@ interface BrandLogoProps {
 }
 
 export default function BrandLogo({
-  width = 132,
-  height = 48,
+  width = 79,
+  height = 29,
   className = "object-contain",
   priority = false,
 }: BrandLogoProps) {
