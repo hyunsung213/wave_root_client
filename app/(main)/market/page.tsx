@@ -194,12 +194,7 @@ export default function MarketPage() {
                 /> : <Sprout size={30} className="text-[#94b877]" aria-hidden="true" />}
               </div>
               <div className="flex-1 flex flex-col justify-center">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-bold text-gray-800">{plant.name}</h3>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${plant.status === "upcoming" ? "bg-amber-100 text-amber-800" : "bg-[#eef7e6] text-[#6ea447]"}`}>
-                    {plant.status === "upcoming" ? "분양 예정" : "분양 진행 중"}
-                  </span>
-                </div>
+                <h3 className="mb-1 font-bold text-gray-800">{plant.name}</h3>
                 <p className="text-[10px] text-gray-500 mb-2 line-clamp-2 leading-tight pr-2">
                   {plant.characteristics}
                 </p>
