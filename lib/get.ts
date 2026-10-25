@@ -1,5 +1,19 @@
 import { api } from "./api";
 
+export type CatalogStatus = "available" | "blocked" | "upcoming";
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  price: number | null;
+  growthTargetDays: number | null;
+  status: CatalogStatus;
+}
+
+export async function getCatalog() {
+  const res = await api.get<{ success: boolean; products: CatalogProduct[] }>("/api/web/catalog");
+  return res.data;
+}
+
 // 1. 공통 & 사용자
 export async function checkHealth() {
   const res = await api.get("/health");

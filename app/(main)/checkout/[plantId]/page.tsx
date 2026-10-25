@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { Check, ChevronLeft, Clipboard, TicketCheck } from "lucide-react";
+import { Check, ChevronLeft, Clipboard, TicketCheck, Sprout } from "lucide-react";
 import { useEffect, useState } from "react";
 import { plantsData } from "@/lib/plantsData";
 import { getPlantImage } from "@/lib/plantImages";
 import { useStore } from "@/store/useStore";
-import { getMyCoupons, getMyOrder, type AvailableCoupon } from "@/lib/get";
+import { getCatalog, getMyCoupons, getMyOrder, type AvailableCoupon, type CatalogProduct } from "@/lib/get";
 import { cancelAdoptionOrder, createAdoptionOrder, validateAdoptionCoupon, type CheckoutOrder } from "@/lib/post";
 import BottomSheet from "@/components/ui/BottomSheet";
 
@@ -28,10 +28,25 @@ export default function CheckoutPage() {
   const [cancelSheetOpen, setCancelSheetOpen] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const subtotal = (plant?.price ?? 0) + PASS_PRICE;
+  const [catalogProduct, setCatalogProduct] = useState<CatalogProduct | null>(null);
+  const [catalogState, setCatalogState] = useState<"loading" | "ready" | "error">("loading");
+  const canOrder = catalogState === "ready" && catalogProduct?.status === "available" && catalogProduct.price !== null;
+  const productPrice = catalogProduct?.price ?? plant?.price ?? 0;
+  const displayPrice = catalogProduct?.price == null && plant?.price === 0 ? "가격 미정" : `${productPrice.toLocaleString()}원`;
+  const subtotal = productPrice + PASS_PRICE;
   const amountDue = validatedCoupon?.amountDue ?? subtotal;
   const plantName = pendingPlantName?.trim() || (plant ? `우리집 ${plant.name}` : "");
   const isFreeOrder = order?.amountDue === 0 && order.status !== "cancelled";
+
+  useEffect(() => {
+    let active = true;
+    getCatalog().then((data) => {
+      if (!active) return;
+      setCatalogProduct(data.products.find((item) => item.id === params.plantId) ?? null);
+      setCatalogState("ready");
+    }).catch(() => { if (active) setCatalogState("error"); });
+    return () => { active = false; };
+  }, [params.plantId]);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +81,7 @@ export default function CheckoutPage() {
     setError("");
     setValidatedCoupon(null);
     if (!plant) return;
+    if (!canOrder) { setError("현재 분양할 수 없는 식물입니다."); return; }
     if (!code.trim()) { setError("쿠폰 코드를 입력해주세요."); return; }
     setBusy(true);
     try {
@@ -81,6 +97,7 @@ export default function CheckoutPage() {
     event.preventDefault();
     setError("");
     if (!plant) return;
+    if (!canOrder) { setError("현재 분양할 수 없는 식물입니다."); return; }
     if (amountDue > 0 && !depositorName.trim()) { setError("입금자명을 입력해주세요."); return; }
     setBusy(true);
     try {
@@ -193,21 +210,22 @@ export default function CheckoutPage() {
           <button type="button" onClick={() => router.push("/home")} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white">내 정원으로</button>
         </div>
       ) : <form onSubmit={submitOrder} className="space-y-5">
+      {!canOrder && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{catalogState === "loading" ? "분양 가능 여부를 확인하고 있어요…" : catalogState === "error" ? "분양 상태를 확인할 수 없어요. 잠시 후 다시 방문해주세요." : catalogProduct?.status === "upcoming" ? "이 식물은 분양 예정입니다." : "이 식물은 현재 분양할 수 없습니다."}</p>}
       <section className="flex items-center gap-4 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="relative h-20 w-20 shrink-0 rounded-2xl bg-gray-50">
-          <Image src={getPlantImage(plant.id)} alt={plant.name} fill sizes="80px" className="object-contain p-2" />
+          {plant.imageUrl ? <Image src={getPlantImage(plant.id)} alt={plant.name} fill sizes="80px" className="object-contain p-2" /> : <div className="flex h-full items-center justify-center"><Sprout size={30} className="text-[#94b877]" aria-hidden="true" /></div>}
         </div>
         <div className="min-w-0">
           <h2 className="truncate text-lg font-extrabold text-gray-900">{plant.name}</h2>
           <p className="mt-1 truncate text-sm text-gray-600">{pendingPlantName || "우리집 " + plant.name}</p>
-          <p className="mt-1 text-sm font-bold text-[#5b873a]">{plant.price.toLocaleString()}원</p>
+          <p className="mt-1 text-sm font-bold text-[#5b873a]">{displayPrice}</p>
         </div>
       </section>
 
       <section className="mt-5 rounded-3xl border border-gray-100 bg-gray-50 p-5">
         <h2 className="app-section-title text-gray-900">주문 금액</h2>
         <dl className="mt-4 space-y-3 text-sm">
-          <div className="flex justify-between gap-3"><dt className="text-gray-600">작물 분양</dt><dd className="font-semibold text-gray-900">{plant.price.toLocaleString()}원</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-gray-600">작물 분양</dt><dd className="font-semibold text-gray-900">{displayPrice}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-gray-600">싹키워 이용권 1개월</dt><dd className="font-semibold text-gray-900">{PASS_PRICE.toLocaleString()}원</dd></div>
           <div className="flex justify-between gap-3 border-t border-gray-100 pt-3"><dt className="font-bold text-gray-900">소계</dt><dd className="font-bold text-gray-900">{subtotal.toLocaleString()}원</dd></div>
           {validatedCoupon && <div className="flex justify-between gap-3 text-emerald-700"><dt>쿠폰 할인 ({validatedCoupon.name || validatedCoupon.code})</dt><dd className="font-bold">−{validatedCoupon.discountAmount.toLocaleString()}원</dd></div>}
@@ -243,7 +261,7 @@ export default function CheckoutPage() {
         </section>
       )}
       {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm leading-5 text-rose-800">{error}</p>}
-      <button type="submit" disabled={busy} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white disabled:opacity-50">{busy ? "주문 처리 중…" : "계좌이체 주문 접수"}</button>
+      <button type="submit" disabled={busy || !canOrder} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white disabled:opacity-50">{busy ? "주문 처리 중…" : "계좌이체 주문 접수"}</button>
       <p className="text-center text-xs leading-5 text-gray-500">주문 접수 후 관리자가 입금을 확인해야 분양이 확정됩니다.</p>
       </form>}
       <BottomSheet
