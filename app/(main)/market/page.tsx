@@ -203,6 +203,9 @@ export default function MarketPage() {
                 <p className="text-[10px] text-gray-500 mb-2 line-clamp-2 leading-tight pr-2">
                   {plant.characteristics}
                 </p>
+                {plant.hashtags && <div aria-label={`${plant.name} 해시태그`} className="mb-2 flex flex-wrap gap-1.5">
+                  {plant.hashtags.map((tag) => <span key={tag} className="rounded-full bg-[#f1f6ed] px-2 py-0.5 text-[10px] font-semibold text-[#587d3e]">#{tag}</span>)}
+                </div>}
                 <p className="font-bold text-sm text-[#6ea447]">{plant.status === "upcoming" ? "준비 중 · 선택할 수 없어요" : `${plant.price.toLocaleString()}원`}</p>
               </div>
             </button>
@@ -272,7 +275,7 @@ export default function MarketPage() {
 
                   <div className="bg-gray-50 rounded-2xl p-5 mb-6 space-y-4 border border-gray-100">
                     <div className="flex justify-between items-center gap-3">
-                      <span className="text-sm font-bold text-gray-500 shrink-0">재배 기간</span>
+                      <span className="text-sm font-bold text-gray-500 shrink-0">생장 형태</span>
                       <span className="text-[14px] font-extrabold text-gray-800 text-right">
                         {selectedPlant.growthPeriod}
                       </span>

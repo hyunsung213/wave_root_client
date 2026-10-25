@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, LogOut } from "lucide-react";
 import { getUserMe } from "@/lib/get";
 import { updatePassword, updateUserProfile } from "@/lib/patch";
 import { getErrorMessage } from "@/lib/errors";
@@ -13,6 +13,7 @@ type ProfileFields = { name: string; email: string; phone: string };
 export default function ProfileEditPage() {
   const router = useRouter();
   const setUser = useStore((state) => state.setUser);
+  const logout = useStore((state) => state.logout);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -83,6 +84,11 @@ export default function ProfileEditPage() {
     setPasswordFeedback("");
   };
 
+  const handleLogout = () => {
+    logout();
+    router.replace("/login");
+  };
+
   const handlePasswordSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (passwordSubmitting) return;
@@ -128,7 +134,7 @@ export default function ProfileEditPage() {
 
   return (
     <div className="flex min-h-full flex-col bg-gray-50">
-      <header className="app-page-header sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white">
+      <header className="app-page-header app-page-header--compact sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white">
         <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button -ml-2 text-gray-800 hover:text-black">
           <ChevronLeft size={28} strokeWidth={2.5} aria-hidden="true" />
         </button>
@@ -193,6 +199,14 @@ export default function ProfileEditPage() {
               {passwordSubmitting ? "변경 중…" : "비밀번호 변경하기"}
             </button>
           </form>
+        </section>
+
+        <section aria-labelledby="account-heading" className="mt-8 border-t border-gray-200 pt-7">
+          <h2 id="account-heading" className="app-section-title mb-4 text-gray-900">계정</h2>
+          <button type="button" onClick={handleLogout} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 font-bold text-gray-700 transition-colors hover:bg-gray-100">
+            <LogOut size={18} aria-hidden="true" />
+            로그아웃
+          </button>
         </section>
       </div>
     </div>

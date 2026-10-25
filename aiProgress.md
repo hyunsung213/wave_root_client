@@ -1,9 +1,20 @@
 # AI 작업 기록
 
+## 2026-10-26
+
+- 마켓 식물 카드에 해시태그를 표시하고 누락된 상추·로메인·토마토·고추 태그를 `plantsData.ts`와 `PLANT_INFO.txt`에 추가함. 분양 상세의 생장 형태 라벨을 실제 데이터 의미에 맞췄으며 마이페이지 회사 연락처는 대표자·전화번호·주소를 `준비 중`으로 표시함. 프로필에 로그아웃 액션을 연결하고 프로필·알림 헤더에만 압축 여백을 적용함. ESLint, TypeScript 검사, Next.js production build, `git diff --check` 통과. 백엔드 기본 SENSOR 알림 제외는 별도 opt-in API로 연결됨.
+- 라이브 MJPEG 뷰어에 명시적 토글형 WebGL2 화질 개선 경로를 추가함. 방향 적응형 재구성/대비 제한 샤프닝을 캔버스에서 수행하고, 사용자가 끄거나 WebGL2·CORS·셰이더·그래픽 컨텍스트가 지원되지 않을 때 원래 MJPEG `<img>` 표시로 복귀하도록 구현함. ESLint, `tsc --noEmit --incremental false`, `git diff --check` 통과. production build는 사용자 작업 트리의 기존 market 카탈로그 변경에서 `price: number | null`과 `PlantInfo.price: number` 타입 불일치를 보고해 실패함. 브라우저/GPU 실기기 시각 테스트는 수행하지 않음. 업스케일링은 선택 사항이며 원본에 없는 세부 정보를 복원하지 않음.
+
+## 2026-10-25
+
+- 23:52:03 (+09:00) — 상단 왼쪽 공통 로고의 기본 표시 크기를 132×48px에서 약 60%인 79×29px로 축소함. 홈·마켓·실시간·기록·마이페이지의 공통 로고에 적용되며 명시적 크기를 사용하는 로그인·회원가입 등의 중앙 로고는 유지함. `git diff --check` 통과.
+- 23:59:56 (+09:00) — 공통 헤더 로고 축소를 검증해 프론트 `c5541b7ac4b395382c25c5cfb7de181efca835cb` 커밋을 GitHub `main`에 푸시함. ESLint, TypeScript, Next.js 16.2.10 프로덕션 빌드와 `git diff --check` 통과. Vercel 프로덕션 배포 `dpl_BDN4vqVGAqVBVcoKWq7z4FQsKZYj`가 `READY`이며 `wave-root-client.vercel.app`에 연결됨. 운영 `/home` HTTP 200, 최근 1시간 런타임 오류 0건 확인. 작업 로그는 추가 배포를 피하기 위해 로컬에 기록함.
+
 ## 2026-10-16
 
 - 00:06:34 (+09:00) — 다른 AI가 수정한 분양 카탈로그·공통 식물 이미지 매핑·화면 변경을 확인함. 백엔드 상품 ID·제안 가격·수확 목표와 대조하고 프론트 전체 ESLint, TypeScript 검사, Next.js 프로덕션 빌드가 통과함을 확인함. 기존 프론트 수정과 생성 이미지는 유지했으며 이번 점검 중 프론트 소스는 변경하지 않음. Git 푸시/운영 배포는 하지 않음.
 - 00:20:40 (+09:00) — 운영 배포 직전 프론트 ESLint, `tsc --noEmit --incremental false`, Next.js 16.2.10 production build를 재실행해 모두 통과함. Vercel production은 GitHub `main` 기준이며 최신 성공 배포가 `1535f21`임을 확인. 이미지 6종 포함 프론트 변경은 아직 커밋/푸시하지 않음.
+- 00:23:47 (+09:00) — 프론트 `3226e4f`을 `origin/main`에 푸시함. Vercel production 배포 `dpl_3KGdRrG1p6Akcp3xKFDrS8q1Lvzb`가 `READY`이고 `wave-root-client.vercel.app` 등 production alias를 연결한 것을 확인함.
 
 ## 2026-10-15
 
@@ -89,3 +100,5 @@
 - 2026-10-15 23:12:02 +09:00 — `PLANT_INFO.txt`에 수경재배 기준 루꼴라·청호크(품종 확인 대기)·메리골드·버터헤드·한련화·다채 6종을 추가하고, 기존 바질 항목을 수경재배 기준으로 수정함. 파종부터 첫 잎/포기 수확 또는 첫 개화까지의 참고 기간과 재배 특징·원문 근거를 기록함. 기존 다른 식물 항목과 앱 코드는 변경하지 않음.
 - 2026-10-15 23:12:51 +09:00 — 사용자 확인에 따라 '청호크'를 '청오크 상추'로 바로잡고 설명·ID를 오크리프 상추 기준으로 정정함. 요청된 7종의 중복 없는 섹션과 기간 표기를 검증함.
 - 2026-10-15 23:44:35 +09:00 — 이미지 생성 도구로 루꼴라·청오크 상추·메리골드·버터헤드·한련화·다채의 1:2 세로형 투명 배경 PNG를 종별로 생성하고 `public/plants`에 저장함. 기존 바질 이미지는 유지함. `PLANT_INFO.txt`, `lib/plantsData.ts`, `lib/plantImages.ts`의 이미지 주소를 각 전용 PNG로 통일함. 6개 파일의 투명 픽셀·크기·경로 존재 여부, TypeScript 및 변경 파일 ESLint 검사를 통과함. 커밋·배포는 하지 않음.
+- 2026-10-26 00:24 +09:00 — 분양 목록을 백엔드 공개 상품 API와 연동해 진행 중/예정만 보여주고 예정 상품 선택·주문을 막음. 관리자 상태가 바뀌면 포커스 복귀 시 갱신하며, 청경채·얼갈이 배추를 이미지·정보 준비 중으로 추가하고 빈 이미지는 식물 아이콘으로 표시함. 제공된 표의 7종 계절·온도·특징·해시태그를 식물 자료에 반영함. lint·TypeScript·Next.js production build 통과; 커밋·배포는 하지 않음.
+- 2026-10-26 00:33 +09:00 — 프론트 분양 상태 기능 커밋 `b91d8b0fa599187362b04e78845d7ec419a59929`를 GitHub main에 푸시함. Vercel production 배포 `dpl_FvqDGh9u6Cf8kNXttkKCeALGjDkS`가 READY이고 `wave-root-client.vercel.app` 별칭이 연결됨. 운영 `/market` 200 확인. 백엔드 `/health` 및 카탈로그 API도 200이며 두 신규 작물 상태가 `upcoming`임을 확인함. 기존 스트리밍 미커밋 변경은 유지함.

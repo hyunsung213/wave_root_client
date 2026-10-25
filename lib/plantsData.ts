@@ -33,6 +33,7 @@ export const plantsData: PlantInfo[] = [
   {
     id: "lettuce",
     name: "상추",
+    hashtags: ["재배쉬움", "쌈채소", "신선한잎"],
     imageUrl: "/plants/lettuce.png",
     growthPeriod: "한 작기 동안 잎을 수확하는 엽채류",
     timeToHarvest: 45,
@@ -44,6 +45,7 @@ export const plantsData: PlantInfo[] = [
   {
     id: "romaine",
     name: "로메인",
+    hashtags: ["아삭한식감", "샐러드", "잎채소"],
     imageUrl: "/plants/romaine.png",
     growthPeriod: "한 작기 동안 잎을 수확하는 상추류",
     timeToHarvest: 68,
@@ -55,6 +57,7 @@ export const plantsData: PlantInfo[] = [
   {
     id: "tomato",
     name: "토마토",
+    hashtags: ["열매채소", "새콤달콤", "햇빛사랑"],
     imageUrl: "/plants/tomato.png",
     growthPeriod: "국내에서 한해살이로 재배하는 열매채소",
     timeToHarvest: 80,
@@ -66,6 +69,7 @@ export const plantsData: PlantInfo[] = [
   {
     id: "pepper",
     name: "고추",
+    hashtags: ["매콤한맛", "열매채소", "고온성"],
     imageUrl: "/plants/chiliPepper.png",
     growthPeriod: "국내에서 한해살이로 재배하는 고온성 열매채소",
     timeToHarvest: 80,

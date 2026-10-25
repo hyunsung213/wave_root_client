@@ -124,7 +124,7 @@ export default function NotificationsPage() {
     <div className="flex flex-col bg-gray-50 min-h-full">
       <PullToRefreshStatus state={pullState} />
       {/* 헤더 */}
-      <header className="app-page-header sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white">
+      <header className="app-page-header app-page-header--compact sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white">
         <button type="button" aria-label="뒤로 가기" onClick={() => router.back()} className="icon-button text-gray-800 hover:text-black transition-colors -ml-2">
           <ChevronLeft size={28} strokeWidth={2.5} />
         </button>

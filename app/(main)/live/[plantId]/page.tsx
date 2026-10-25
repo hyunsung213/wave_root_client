@@ -12,6 +12,7 @@ import { createEvent } from "@/lib/post";
 import { useStore, type Plant } from "@/store/useStore";
 import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
 import BrandLogo from "@/components/layout/BrandLogo";
+import WebGLStream from "@/components/live/WebGLStream";
 
 export default function LivePage() {
   const params = useParams();
@@ -38,6 +39,9 @@ export default function LivePage() {
   const videoStatus = videoState.src === streamUrl ? videoState.status : streamUrl ? "loading" : "unavailable";
   const [videoRetry, setVideoRetry] = useState(0);
   const [autoReconnectCount, setAutoReconnectCount] = useState(0);
+  const [webglUpscaling, setWebglUpscaling] = useState(false);
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
+  const markWebglUnavailable = useCallback(() => setWebglUnavailable(true), []);
   const [recordForm, setRecordForm] = useState({ title: "", type: "기타", desc: "" });
   const [draftFor, setDraftFor] = useState<string | null>(null);
   const [recordSubmitting, setRecordSubmitting] = useState(false);
@@ -253,7 +257,7 @@ export default function LivePage() {
         <section aria-label={`${plant.name} 실시간 카메라`} className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#e7eadf] bg-[#171b16] shadow-[0_10px_28px_rgba(51,69,39,0.12)]">
           <div className="relative min-h-0 flex-1 overflow-hidden bg-[#171b16]" style={{ willChange: "transform", isolation: "isolate" }}>
             {plant.streamingUrl && (
-              <img
+              <WebGLStream
                 key={`${plant._id}:${videoRetry}:${plant.streamingUrl}`}
                 src={plant.streamingUrl}
                 alt={`${plant.name} 실시간 카메라 영상`}
@@ -261,6 +265,8 @@ export default function LivePage() {
                 onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
                 className="absolute inset-0 h-full w-full object-cover"
                 style={{ willChange: "transform", transform: `translateZ(0) rotate(${videoRotation}deg) scale(${videoZoom / 100})`, transition: "transform 180ms ease-out" }}
+                enhanced={webglUpscaling && !webglUnavailable}
+                onEnhancementUnavailable={markWebglUnavailable}
               />
             )}
             {videoStatus !== "ready" && (
@@ -273,6 +279,18 @@ export default function LivePage() {
               {videoStatus === "ready" ? "LIVE" : videoStatus === "error" ? "연결 확인" : videoStatus === "loading" ? "연결 중" : "카메라 없음"}
             </span>
             <div role="group" aria-label="영상 화면 조작" className="absolute bottom-3 right-3 flex items-center gap-1 rounded-2xl border border-white/15 bg-[#11180f]/85 p-1 text-white shadow-lg backdrop-blur-sm">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={webglUpscaling && !webglUnavailable}
+                aria-label="WebGL 화질 개선"
+                title={webglUnavailable ? "현재 환경에서 화질 개선을 사용할 수 없어요" : "WebGL 화질 개선"}
+                disabled={webglUnavailable}
+                onClick={() => setWebglUpscaling((enabled) => !enabled)}
+                className={`inline-flex h-10 items-center justify-center rounded-xl px-2 text-[11px] font-bold ${webglUpscaling && !webglUnavailable ? "bg-[#a4d47d] text-[#15210e]" : "text-white"} disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                {webglUnavailable ? "개선 불가" : webglUpscaling ? "개선 켬" : "화질 개선"}
+              </button>
               <button type="button" aria-label="영상 90도 왼쪽 회전" onClick={() => updateVideoRotation((videoRotation + 270) % 360)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><RotateCcw size={18} aria-hidden="true" /></button>
               <button type="button" aria-label="영상 축소" onClick={() => updateVideoZoom(Math.max(100, videoZoom - 25))} disabled={videoZoom <= 100} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Minus size={18} aria-hidden="true" /></button>
               <span aria-live="polite" className="min-w-10 text-center text-xs font-bold tabular-nums">{videoZoom}%</span>

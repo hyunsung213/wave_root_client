@@ -258,6 +258,25 @@ export default function MyPage() {
             </p>
           </div>
         </section>
+
+        <section aria-labelledby="company-contact-heading">
+          <h3 id="company-contact-heading" className="mb-3 flex items-center gap-2 text-[17px] font-extrabold text-gray-800">
+            <span className="h-5 w-1 rounded-full bg-[#6ea447]"></span>
+            회사 정보
+          </h3>
+          <div className="divide-y divide-gray-100 rounded-[1.5rem] border border-gray-100 bg-white px-5 shadow-sm">
+            {[
+              ["대표자", "준비 중"],
+              ["전화번호", "준비 중"],
+              ["주소", "준비 중"],
+            ].map(([label, value]) => (
+              <div key={label} className="flex min-h-12 items-center justify-between gap-4 text-sm">
+                <span className="font-semibold text-gray-500">{label}</span>
+                <span className="text-right font-bold text-gray-700">{value}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
 
       {/* 하단 여백 */}

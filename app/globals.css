@@ -20,6 +20,11 @@
   padding: 1.5rem var(--app-gutter) 1rem;
 }
 
+.app-page-header.app-page-header--compact {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
 .app-page-content {
   padding-right: var(--app-gutter);
   padding-left: var(--app-gutter);

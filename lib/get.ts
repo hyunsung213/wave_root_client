@@ -65,8 +65,8 @@ export async function getActivity() {
 }
 
 // 7. 알림
-export async function getNotifications(page = 1, limit = 30, unreadOnly = false) {
-  const res = await api.get("/api/web/notifications", { params: { page, limit, unreadOnly } });
+export async function getNotifications(page = 1, limit = 30, unreadOnly = false, includeSensor = false) {
+  const res = await api.get("/api/web/notifications", { params: { page, limit, unreadOnly, includeSensor } });
   return res.data;
 }
 
