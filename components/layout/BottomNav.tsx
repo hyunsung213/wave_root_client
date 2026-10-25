@@ -17,14 +17,14 @@ export default function BottomNav() {
     { name: "홈", path: "/home", icon: Home },
     { name: "분양", path: "/market", icon: Sprout },
     { name: "실시간", path: defaultPlantId ? `/live/${defaultPlantId}` : "", icon: Video },
-    { name: "기록", path: `/record`, icon: FileText },
+    { name: "일기", path: `/record`, icon: FileText },
     { name: "마이", path: "/mypage", icon: User },
   ];
 
   if (isSheetOpen) return null;
 
   return (
-    <nav aria-label="주요 메뉴" className="absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 flex h-16 items-center justify-around rounded-[22px] border border-[#e2ecc8] bg-white px-2 shadow-[0_10px_30px_rgba(48,68,35,0.14)]">
+    <nav aria-label="주요 메뉴" className="app-bottom-nav absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-4 right-4 z-50 flex h-16 items-center justify-around rounded-[22px] border border-[#e2ecc8] bg-white px-2 shadow-[0_10px_30px_rgba(48,68,35,0.14)]">
       {navItems.map((item) => {
         const Icon = item.icon;
         if (!item.path) {
@@ -47,14 +47,7 @@ export default function BottomNav() {
               isActive ? "text-[#6ea447]" : "text-gray-400 hover:text-gray-500"
             }`}
           >
-            {isActive ? (
-              <div className="relative flex items-center justify-center">
-                <div className="absolute w-8 h-8 bg-[#f1f7e3] rounded-full -z-10" />
-                <Icon size={20} strokeWidth={2.5} />
-              </div>
-            ) : (
-              <Icon size={20} strokeWidth={2} />
-            )}
+            <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
             <span className={`text-xs font-bold ${isActive ? "text-[#6ea447]" : "text-gray-400"}`}>
               {item.name}
             </span>

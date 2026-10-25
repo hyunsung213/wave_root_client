@@ -242,33 +242,16 @@ export default function MyPage() {
           </div>
         </section>
 
-        {/* 구독 정보 */}
-        <section>
-          <h3 className="text-[17px] font-extrabold text-gray-800 mb-3 flex items-center gap-2">
-            <span className="w-1 h-5 bg-[#6ea447] rounded-full"></span>
-            구독 정보
-          </h3>
-          <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 shadow-sm">
-            <div className="flex justify-between items-center mb-1">
-              <h4 className="font-extrabold text-gray-800">싹키워 이용권</h4>
-              <span className="text-[10px] text-gray-500 bg-gray-100 font-bold px-3 py-1 rounded-full">BETA</span>
-            </div>
-            <p className="text-xs font-medium text-gray-500">
-              베타 기간에는 모든 기능을 무료로 이용할 수 있어요.
-            </p>
-          </div>
-        </section>
-
         <section aria-labelledby="company-contact-heading">
           <h3 id="company-contact-heading" className="mb-3 flex items-center gap-2 text-[17px] font-extrabold text-gray-800">
             <span className="h-5 w-1 rounded-full bg-[#6ea447]"></span>
-            회사 정보
+            문의
           </h3>
           <div className="divide-y divide-gray-100 rounded-[1.5rem] border border-gray-100 bg-white px-5 shadow-sm">
             {[
-              ["대표자", "준비 중"],
-              ["전화번호", "준비 중"],
-              ["주소", "준비 중"],
+              ["대표자", process.env.NEXT_PUBLIC_COMPANY_REPRESENTATIVE || "준비 중"],
+              ["전화번호", process.env.NEXT_PUBLIC_COMPANY_PHONE || "준비 중"],
+              ["주소", process.env.NEXT_PUBLIC_COMPANY_ADDRESS || "준비 중"],
             ].map(([label, value]) => (
               <div key={label} className="flex min-h-12 items-center justify-between gap-4 text-sm">
                 <span className="font-semibold text-gray-500">{label}</span>

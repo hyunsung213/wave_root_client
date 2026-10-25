@@ -21,8 +21,13 @@
 }
 
 .app-page-header.app-page-header--compact {
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.app-bottom-nav a,
+.app-bottom-nav button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-page-content {
