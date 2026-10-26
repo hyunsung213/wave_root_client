@@ -2,6 +2,7 @@
 
 ## 2026-10-26
 
+- 라이브 카메라를 축소·확장 상태 모두 전체 `mode=full` 프레임으로 요청하고, 실패 시 `mode=crop` 폴백 및 해당 URL 캡처가 동작하도록 프록시 허용 모드를 확장함. 식물 키 기준으로 확장·폴백 상태를 파생해 식물 변경 effect의 동기 상태 설정을 제거하고, 미사용 `fallbackStreamUrl`과 참조되지 않는 `WebGLStream.tsx`를 삭제함. RDK README를 현재 스트림 동작에 맞춤. 변경 파일 ESLint, TypeScript, 백엔드 전체 테스트(61/61), `git diff --check` 통과. production build는 실행 도구의 30초 제한에 걸려 완료를 확인하지 못했으며, 실기기 검증은 미수행.
 - 확장 시에만 서명 스트림 URL에 `mode=full`을 더해 전체 프레임으로 전환하고, 해당 요청 실패 시 기존 존 크롭 스트림으로 복귀하도록 구현함. 확대 범위를 100~400%로 확장하고 접근 가능한 확대·축소·초기화 버튼, 핀치 중심 고정, 경계가 있는 한 손 팬을 연결했으며 캡처 경로는 기존 크롭 URL을 유지함. TypeScript 및 Next.js production build 통과. ESLint 통과(미사용 코드 경고를 제거함); 실제 모바일 제스처 및 카메라 동작 검증은 하지 않음.
 - 라이브 확장 화면의 진입/복귀 레이아웃과 헤더·컨트롤에 애니메이션을 적용하고, 확장 컨테이너를 `z-40`으로 조정해 `z-50` 하단 네비게이션을 계속 표시함. 축소 상태에는 우하단 확장 버튼만, 확장 상태에는 좌우 회전·화질 개선·축소 컨트롤만 표시하고 줌 버튼/수치 UI를 제거함. 기존 확장 상태의 100–300% 핀치 줌은 유지함. 확장 영상에 `contain`을 적용하고 WebGL 셰이더에도 cover/contain 적합 및 레터박스 처리를 추가함. ESLint, `tsc --noEmit --incremental false`, Next.js production build 및 `git diff --check` 통과. 실기기 핀치 검증은 수행하지 않음.
 - 라이브 카메라에 헤더를 유지하는 화면 확장 모드를 구현함. 확장 시 메모 버튼과 식물 선택 칩 및 페이지 좌우 스와이프를 비활성화하고, WebGL 스트림 인스턴스를 유지한 채 Pointer Events 기반 100–300% 핀치 줌과 화면 회전/확대·축소/복귀 컨트롤을 제공함. 확대/축소 복귀와 식물 변경에서 줌 상태를 초기화함. ESLint(`app`, `components`), `tsc --noEmit --incremental false`, Next.js production build 및 `git diff --check` 통과. 실기기 제스처 검증은 수행하지 않음.

@@ -2,9 +2,9 @@
 
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion, PanInfo } from "framer-motion";
-import { Camera, ChevronDown, Edit3, RefreshCw, RotateCcw, RotateCw, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Camera, ChevronDown, Edit3, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { getPlantById } from "@/lib/get";
@@ -12,7 +12,6 @@ import { createEvent } from "@/lib/post";
 import { useStore, type Plant } from "@/store/useStore";
 import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
 import BrandLogo from "@/components/layout/BrandLogo";
-import WebGLStream from "@/components/live/WebGLStream";
 import { CollapseVideoIcon, ExpandVideoIcon } from "@/components/live/StreamViewIcons";
 
 function hasCameraAssignment(
@@ -22,14 +21,6 @@ function hasCameraAssignment(
 ) {
   if (streamingStatus) return streamingStatus !== "unassigned";
   return Boolean(cameraId && zone != null);
-}
-
-function rotatePoint(x: number, y: number, rotation: number) {
-  const radians = (rotation * Math.PI) / 180;
-  return {
-    x: x * Math.cos(radians) - y * Math.sin(radians),
-    y: x * Math.sin(radians) + y * Math.cos(radians),
-  };
 }
 
 export default function LivePage() {
@@ -62,9 +53,6 @@ export default function LivePage() {
     : streamUrl ? "loading" : assignedCamera ? "loading" : "unavailable";
   const [videoRetry, setVideoRetry] = useState(0);
   const [autoReconnectCount, setAutoReconnectCount] = useState(0);
-  const [webglUpscaling, setWebglUpscaling] = useState(false);
-  const [webglUnavailable, setWebglUnavailable] = useState(false);
-  const markWebglUnavailable = useCallback(() => setWebglUnavailable(true), []);
   const [recordForm, setRecordForm] = useState({ title: "", type: "기타", desc: "" });
   const [draftFor, setDraftFor] = useState<string | null>(null);
   const [recordSubmitting, setRecordSubmitting] = useState(false);
@@ -73,132 +61,36 @@ export default function LivePage() {
   const activeRecordImage = recordImage?.plantId === plantId ? recordImage : null;
   const [imageCaptureLoading, setImageCaptureLoading] = useState(false);
   const [imageCaptureFeedback, setImageCaptureFeedback] = useState("");
-  const [videoView, setVideoView] = useState({ plantId: activePlantKey, rotation: 0, zoom: 100, panX: 0, panY: 0 });
-  const [isVideoExpanded, setIsVideoExpanded] = useState(false);
-  const [fullStreamUnavailableFor, setFullStreamUnavailableFor] = useState<string | null>(null);
-  const fullStreamFallbackActive = fullStreamUnavailableFor === streamUrl;
-  const displayStreamUrl = isVideoExpanded && streamUrl && !fullStreamFallbackActive
-    ? (() => { const url = new URL(streamUrl); url.searchParams.set("mode", "full"); return url.toString(); })()
-    : streamUrl;
-  const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
-  const pinchStartRef = useRef({ distance: 0, zoom: 100, panX: 0, panY: 0, anchorX: 0, anchorY: 0 });
-  const lastPanPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const videoViewportRef = useRef<HTMLDivElement>(null);
-  const previousPlantKeyRef = useRef(activePlantKey);
+  const [videoView, setVideoView] = useState({ plantId: activePlantKey, rotation: 0 });
+  const [expandedForPlantKey, setExpandedForPlantKey] = useState<string | null>(null);
+  const isVideoExpanded = expandedForPlantKey === activePlantKey;
+  const [fullStreamUnavailable, setFullStreamUnavailable] = useState<{ plantKey: string; streamUrl: string } | null>(null);
+  const fullStreamFallbackActive = fullStreamUnavailable?.plantKey === activePlantKey && fullStreamUnavailable.streamUrl === streamUrl;
+  const displayStreamUrl = streamUrl
+    ? (() => {
+        const url = new URL(streamUrl);
+        if (fullStreamFallbackActive) url.searchParams.set("mode", "crop");
+        else url.searchParams.set("mode", "full");
+        return url.toString();
+      })()
+    : null;
   const videoRotation = videoView.plantId === activePlantKey ? videoView.rotation : 0;
-  const videoZoom = videoView.plantId === activePlantKey ? videoView.zoom : 100;
-  const videoPanX = videoView.plantId === activePlantKey ? videoView.panX : 0;
-  const videoPanY = videoView.plantId === activePlantKey ? videoView.panY : 0;
-  const updateVideoRotation = (rotation: number) => setVideoView((current) => ({
-    plantId: activePlantKey, rotation, zoom: current.plantId === activePlantKey ? current.zoom : 100,
-    panX: current.plantId === activePlantKey ? current.panX : 0,
-    panY: current.plantId === activePlantKey ? current.panY : 0,
-  }));
-  const updateVideoPan = (panX: number, panY: number, zoom = videoZoom, bounds?: DOMRect, rotation = videoRotation) => {
-    let nextPanX = panX;
-    let nextPanY = panY;
-    if (bounds) {
-      const scale = zoom / 100;
-      const quarterTurn = Math.abs(rotation % 180) === 90;
-      const frameAspectRatio = 16 / 9;
-      const fitWidth = Math.min(bounds.width, bounds.height * frameAspectRatio);
-      const fitHeight = Math.min(bounds.height, bounds.width / frameAspectRatio);
-      const scaledWidth = (quarterTurn ? fitHeight : fitWidth) * scale;
-      const scaledHeight = (quarterTurn ? fitWidth : fitHeight) * scale;
-      nextPanX = Math.max(-Math.max(0, (scaledWidth - bounds.width) / 2), Math.min(Math.max(0, (scaledWidth - bounds.width) / 2), nextPanX));
-      nextPanY = Math.max(-Math.max(0, (scaledHeight - bounds.height) / 2), Math.min(Math.max(0, (scaledHeight - bounds.height) / 2), nextPanY));
-    }
-    setVideoView((current) => ({
-      plantId: activePlantKey, rotation: current.plantId === activePlantKey ? current.rotation : 0,
-      zoom, panX: nextPanX, panY: nextPanY,
-    }));
-  };
-  const updateVideoZoom = (zoom: number) => {
-    const nextZoom = Math.max(100, Math.min(400, zoom));
-    updateVideoPan(videoPanX, videoPanY, nextZoom, videoViewportRef.current?.getBoundingClientRect());
-  };
 
-  useEffect(() => {
-    if (previousPlantKeyRef.current === activePlantKey) return;
-    previousPlantKeyRef.current = activePlantKey;
-    activePointersRef.current.clear();
-    setVideoView({ plantId: activePlantKey, rotation: 0, zoom: 100, panX: 0, panY: 0 });
-    setFullStreamUnavailableFor(null);
-    setIsVideoExpanded(false);
-  }, [activePlantKey]);
+  const updateVideoRotation = (rotation: number) => setVideoView({ plantId: activePlantKey, rotation });
 
   useEffect(() => {
     if (!isVideoExpanded) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsVideoExpanded(false);
-        setVideoView({ plantId: activePlantKey, rotation: videoRotation, zoom: 100, panX: 0, panY: 0 });
+        setExpandedForPlantKey(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isVideoExpanded, videoRotation, activePlantKey]);
-
-  const handleVideoPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!isVideoExpanded || (event.target as HTMLElement).closest("button")) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (activePointersRef.current.size === 1) lastPanPointerRef.current = { x: event.clientX, y: event.clientY };
-    if (activePointersRef.current.size === 2) {
-      const [first, second] = Array.from(activePointersRef.current.values());
-      const bounds = event.currentTarget.getBoundingClientRect();
-      const midpointX = (first.x + second.x) / 2 - (bounds.left + bounds.width / 2);
-      const midpointY = (first.y + second.y) / 2 - (bounds.top + bounds.height / 2);
-      const localAnchor = rotatePoint((midpointX - videoPanX) / (videoZoom / 100),
-        (midpointY - videoPanY) / (videoZoom / 100), -videoRotation);
-      pinchStartRef.current = {
-        distance: Math.hypot(second.x - first.x, second.y - first.y),
-        zoom: videoZoom,
-        panX: videoPanX,
-        panY: videoPanY,
-        anchorX: localAnchor.x,
-        anchorY: localAnchor.y,
-      };
-      lastPanPointerRef.current = null;
-    }
-  };
-
-  const handleVideoPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!isVideoExpanded || !activePointersRef.current.has(event.pointerId)) return;
-    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    const bounds = event.currentTarget.getBoundingClientRect();
-    if (activePointersRef.current.size >= 2 && pinchStartRef.current.distance > 0) {
-      const [first, second] = Array.from(activePointersRef.current.values());
-      const distance = Math.hypot(second.x - first.x, second.y - first.y);
-      const zoom = Math.round((pinchStartRef.current.zoom * distance / pinchStartRef.current.distance) / 5) * 5;
-      const clampedZoom = Math.max(100, Math.min(400, zoom));
-      const midpointX = (first.x + second.x) / 2 - (bounds.left + bounds.width / 2);
-      const midpointY = (first.y + second.y) / 2 - (bounds.top + bounds.height / 2);
-      const screenAnchor = rotatePoint(pinchStartRef.current.anchorX * (clampedZoom / 100),
-        pinchStartRef.current.anchorY * (clampedZoom / 100), videoRotation);
-      updateVideoPan(midpointX - screenAnchor.x, midpointY - screenAnchor.y, clampedZoom, bounds);
-      return;
-    }
-    if (activePointersRef.current.size === 1 && lastPanPointerRef.current) {
-      const deltaX = event.clientX - lastPanPointerRef.current.x;
-      const deltaY = event.clientY - lastPanPointerRef.current.y;
-      lastPanPointerRef.current = { x: event.clientX, y: event.clientY };
-      if (videoZoom > 100) updateVideoPan(videoPanX + deltaX, videoPanY + deltaY, videoZoom, bounds);
-    }
-  };
-
-  const handleVideoPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
-    activePointersRef.current.delete(event.pointerId);
-    pinchStartRef.current.distance = 0;
-    const remaining = Array.from(activePointersRef.current.values())[0];
-    lastPanPointerRef.current = remaining ?? null;
-  };
+  }, [isVideoExpanded]);
 
   const collapseVideo = () => {
-    activePointersRef.current.clear();
-    lastPanPointerRef.current = null;
-    setIsVideoExpanded(false);
-    updateVideoZoom(100);
+    setExpandedForPlantKey(null);
   };
 
   useEffect(() => {
@@ -241,7 +133,7 @@ export default function LivePage() {
     setPlantRequest({ id: plantId, status: "loading" });
     if (!automatic) {
       setAutoReconnectCount(0);
-      setFullStreamUnavailableFor(null);
+      setFullStreamUnavailable(null);
     }
     setVideoRetry((value) => value + 1);
     try {
@@ -311,7 +203,7 @@ export default function LivePage() {
       const response = await fetch("/api/proxy-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: streamUrl }),
+        body: JSON.stringify({ url: displayStreamUrl ?? streamUrl }),
         cache: "no-store",
       });
       if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().startsWith("image/jpeg")) {
@@ -438,32 +330,24 @@ export default function LivePage() {
 
         <section aria-label={`${plant.name} 실시간 카메라`} className={`relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#171b16] ${isVideoExpanded ? "rounded-none border-0 shadow-none" : "rounded-[24px] border border-[#e7eadf] shadow-[0_10px_28px_rgba(51,69,39,0.12)]"}`}>
           <div
-            ref={videoViewportRef}
             className={`relative min-h-0 flex-1 overflow-hidden bg-[#171b16] ${isVideoExpanded ? "touch-none" : ""}`}
             style={{ willChange: "transform", isolation: "isolate" }}
-            onPointerDown={handleVideoPointerDown}
-            onPointerMove={handleVideoPointerMove}
-            onPointerUp={handleVideoPointerEnd}
-            onPointerCancel={handleVideoPointerEnd}
           >
             {plant.streamingUrl && (
-              <WebGLStream
+              <img
                 key={`${plant._id}:${videoRetry}:${displayStreamUrl}`}
                 src={displayStreamUrl ?? plant.streamingUrl}
                 alt={`${plant.name} 실시간 카메라 영상`}
                 onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
                 onError={() => {
-                  if (isVideoExpanded && streamUrl && !fullStreamFallbackActive) {
-                    setFullStreamUnavailableFor(streamUrl);
+                  if (streamUrl && !fullStreamFallbackActive) {
+                    setFullStreamUnavailable({ plantKey: activePlantKey, streamUrl });
                     return;
                   }
                   setVideoState({ src: plant.streamingUrl ?? null, status: "error" });
                 }}
-                className={`absolute inset-0 h-full w-full ${isVideoExpanded ? "object-contain" : "object-cover"}`}
-                style={{ willChange: "transform", transform: `translate3d(${videoPanX}px, ${videoPanY}px, 0) rotate(${videoRotation}deg) scale(${videoZoom / 100})`, transition: "transform 180ms ease-out" }}
-                fit={isVideoExpanded ? "contain" : "cover"}
-                enhanced={webglUpscaling && !webglUnavailable}
-                onEnhancementUnavailable={markWebglUnavailable}
+                className="absolute inset-0 h-full w-full object-contain"
+                style={{ willChange: "transform", transform: `rotate(${videoRotation}deg)`, transition: "transform 180ms ease-out" }}
               />
             )}
             {videoStatus !== "ready" && (
@@ -471,7 +355,7 @@ export default function LivePage() {
                 {videoStatus === "error" ? "카메라 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요." : videoStatus === "loading" ? "카메라에 연결하고 있어요…" : "연결된 카메라가 없어요."}
               </p>
             )}
-            {isVideoExpanded && fullStreamFallbackActive && videoStatus === "ready" && (
+            {fullStreamFallbackActive && videoStatus === "ready" && (
               <p role="status" className="absolute left-1/2 top-14 -translate-x-1/2 rounded-full bg-black/65 px-3 py-1.5 text-center text-xs font-semibold text-white/85">
                 전체 프레임을 사용할 수 없어 영역 화면으로 전환했어요.
               </p>
@@ -492,24 +376,8 @@ export default function LivePage() {
                   transition={{ duration: 0.2, ease: "easeOut" }}
                   className="absolute bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-40 flex items-center gap-1 rounded-2xl border border-white/15 bg-[#11180f]/75 p-1 text-white shadow-lg backdrop-blur-md sm:left-1/2 sm:right-auto sm:w-[min(28rem,calc(100%-1.5rem))] sm:-translate-x-1/2"
                 >
-                  <button type="button" aria-label="영상 축소" disabled={videoZoom <= 100} onClick={() => updateVideoZoom(Math.max(100, videoZoom - 25))} className="icon-button shrink-0 rounded-xl hover:bg-white/15 disabled:opacity-40"><ZoomOut size={18} aria-hidden="true" /></button>
-                  <button type="button" aria-label="영상 확대" disabled={videoZoom >= 400} onClick={() => updateVideoZoom(Math.min(400, videoZoom + 25))} className="icon-button shrink-0 rounded-xl hover:bg-white/15 disabled:opacity-40"><ZoomIn size={18} aria-hidden="true" /></button>
-                  <span aria-live="polite" className="min-w-10 text-center text-xs font-bold tabular-nums">{videoZoom}%</span>
                   <button type="button" aria-label="영상 90도 왼쪽 회전" onClick={() => updateVideoRotation((videoRotation + 270) % 360)} className="icon-button shrink-0 rounded-xl hover:bg-white/15"><RotateCcw size={18} aria-hidden="true" /></button>
                   <button type="button" aria-label="영상 90도 오른쪽 회전" onClick={() => updateVideoRotation((videoRotation + 90) % 360)} className="icon-button shrink-0 rounded-xl hover:bg-white/15"><RotateCw size={18} aria-hidden="true" /></button>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={webglUpscaling && !webglUnavailable}
-                    aria-label="WebGL 화질 개선"
-                    title={webglUnavailable ? "현재 환경에서 화질 개선을 사용할 수 없어요" : "WebGL 화질 개선"}
-                    disabled={webglUnavailable}
-                    onClick={() => setWebglUpscaling((enabled) => !enabled)}
-                    className={`ml-1 inline-flex h-10 items-center justify-center rounded-xl px-3 text-[11px] font-bold ${webglUpscaling && !webglUnavailable ? "bg-[#a4d47d] text-[#15210e]" : "text-white hover:bg-white/10"} disabled:cursor-not-allowed disabled:opacity-50`}
-                  >
-                    {webglUnavailable ? "개선 불가" : webglUpscaling ? "개선 켬" : "화질 개선"}
-                  </button>
-                  <button type="button" aria-label="영상 확대 및 위치 초기화" disabled={videoZoom === 100 && videoPanX === 0 && videoPanY === 0} onClick={() => { updateVideoZoom(100); updateVideoPan(0, 0, 100); }} className="ml-1 rounded-xl px-2 py-2 text-[11px] font-bold hover:bg-white/10 disabled:opacity-40">초기화</button>
                   <span className="flex-1" aria-hidden="true" />
                   <button type="button" aria-label="영상 확장 모드 닫기" onClick={collapseVideo} className="icon-button shrink-0 rounded-xl bg-white/10 hover:bg-white/20"><CollapseVideoIcon className="h-[18px] w-[18px]" /></button>
                 </motion.div>
@@ -524,7 +392,7 @@ export default function LivePage() {
                   transition={{ duration: 0.18, ease: "easeOut" }}
                   className="absolute bottom-3 right-3 flex items-center rounded-2xl border border-white/15 bg-[#11180f]/75 p-1 text-white shadow-lg backdrop-blur-md"
                 >
-                  <button type="button" aria-label="영상 확장 모드" onClick={() => setIsVideoExpanded(true)} className="icon-button rounded-xl hover:bg-white/15"><ExpandVideoIcon className="h-[18px] w-[18px]" /></button>
+                  <button type="button" aria-label="영상 확장 모드" onClick={() => setExpandedForPlantKey(activePlantKey)} className="icon-button rounded-xl hover:bg-white/15"><ExpandVideoIcon className="h-[18px] w-[18px]" /></button>
                 </motion.div>
               )}
             </AnimatePresence>

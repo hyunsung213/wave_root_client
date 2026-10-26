@@ -20,7 +20,10 @@ function getStreamTarget(rawUrl: unknown): URL | null {
 
   const expectedOrigin = new URL(apiBaseUrl).origin;
   const isPlantStream = /^\/api\/web\/plants\/stream\/[A-Za-z0-9._~-]+$/.test(target.pathname);
-  if (target.origin !== expectedOrigin || !isPlantStream || target.search || target.hash || target.username || target.password) {
+  if (target.origin !== expectedOrigin || !isPlantStream || target.hash || target.username || target.password ||
+      Array.from(target.searchParams.keys()).some((key) => key !== 'mode') ||
+      (target.searchParams.has('mode') && target.searchParams.getAll('mode').length !== 1) ||
+      (target.searchParams.has('mode') && !['full', 'crop'].includes(target.searchParams.get('mode') ?? ''))) {
     return null;
   }
   return target;
