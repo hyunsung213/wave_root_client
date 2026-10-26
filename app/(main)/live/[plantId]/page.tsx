@@ -3,9 +3,9 @@
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Camera, ChevronDown, Edit3, Minus, Plus, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
+import { AnimatePresence, motion, PanInfo } from "framer-motion";
+import { Camera, ChevronDown, Edit3, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { motion, PanInfo } from "framer-motion";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { getPlantById } from "@/lib/get";
 import { createEvent } from "@/lib/post";
@@ -327,28 +327,41 @@ export default function LivePage() {
     <>
       {/* ═══ Main Live View ═══ */}
       <motion.div
+        layout
         drag={isVideoExpanded ? false : "x"}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.2}
         onDragEnd={handleDragEnd}
+        transition={{ layout: { duration: 0.36, ease: [0.22, 1, 0.36, 1] } }}
         className={isVideoExpanded
-          ? "fixed inset-0 z-[60] flex h-[100dvh] min-h-0 w-full flex-col gap-2 overflow-hidden bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1"
+          ? "fixed inset-0 z-40 flex h-[100dvh] min-h-0 w-full flex-col gap-0 overflow-hidden bg-[#171b16] p-0"
           : "relative flex h-full min-h-full w-full flex-col gap-2 overflow-hidden bg-white px-4 pb-3 pt-1"}
       >
-        <header className="app-page-header -mx-4 flex shrink-0 items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <h1 aria-label="싹키워"><BrandLogo /></h1>
-          <button
-            type="button"
-            onClick={() => { void retryPlantStream(); }}
-            aria-label="카메라 새로고침"
-            disabled={videoStatus === "loading"}
-            className="icon-button text-gray-500 transition-colors hover:text-gray-800 disabled:cursor-wait disabled:opacity-50"
-          >
-            <RefreshCw size={20} aria-hidden="true" className={videoStatus === "loading" ? "animate-spin" : undefined} />
-          </button>
-        </header>
+        <AnimatePresence initial={false}>
+          {!isVideoExpanded && (
+            <motion.header
+              key="live-header"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -18, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
+              className="app-page-header -mx-4 flex shrink-0 items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]"
+            >
+              <h1 aria-label="싹키워"><BrandLogo /></h1>
+              <button
+                type="button"
+                onClick={() => { void retryPlantStream(); }}
+                aria-label="카메라 새로고침"
+                disabled={videoStatus === "loading"}
+                className="icon-button text-gray-500 transition-colors hover:text-gray-800 disabled:cursor-wait disabled:opacity-50"
+              >
+                <RefreshCw size={20} aria-hidden="true" className={videoStatus === "loading" ? "animate-spin" : undefined} />
+              </button>
+            </motion.header>
+          )}
+        </AnimatePresence>
 
-        <section aria-label={`${plant.name} 실시간 카메라`} className={`relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#171b16] ${isVideoExpanded ? "rounded-[28px] border border-[#343d31] shadow-[0_14px_50px_rgba(16,23,14,0.28)]" : "rounded-[24px] border border-[#e7eadf] shadow-[0_10px_28px_rgba(51,69,39,0.12)]"}`}>
+        <section aria-label={`${plant.name} 실시간 카메라`} className={`relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#171b16] ${isVideoExpanded ? "rounded-none border-0 shadow-none" : "rounded-[24px] border border-[#e7eadf] shadow-[0_10px_28px_rgba(51,69,39,0.12)]"}`}>
           <div
             className={`relative min-h-0 flex-1 overflow-hidden bg-[#171b16] ${isVideoExpanded ? "touch-none" : ""}`}
             style={{ willChange: "transform", isolation: "isolate" }}
@@ -364,8 +377,9 @@ export default function LivePage() {
                 alt={`${plant.name} 실시간 카메라 영상`}
                 onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
                 onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
-                className="absolute inset-0 h-full w-full object-cover"
+                className={`absolute inset-0 h-full w-full ${isVideoExpanded ? "object-contain" : "object-cover"}`}
                 style={{ willChange: "transform", transform: `translateZ(0) rotate(${videoRotation}deg) scale(${videoZoom / 100})`, transition: "transform 180ms ease-out" }}
+                fit={isVideoExpanded ? "contain" : "cover"}
                 enhanced={webglUpscaling && !webglUnavailable}
                 onEnhancementUnavailable={markWebglUnavailable}
               />
@@ -379,30 +393,50 @@ export default function LivePage() {
               <span aria-hidden="true" className={`h-2 w-2 rounded-full ${videoStatus === "ready" ? "animate-pulse bg-red-500" : "bg-gray-400"}`} />
               {videoStatus === "ready" ? "LIVE" : videoStatus === "error" ? "연결 확인" : videoStatus === "loading" ? "연결 중" : "카메라 없음"}
             </span>
-            <div role="group" aria-label="영상 화면 조작" className={`absolute bottom-3 flex max-w-[calc(100%-1rem)] items-center gap-1 overflow-x-auto rounded-2xl border border-white/15 bg-[#11180f]/85 p-1 text-white shadow-lg backdrop-blur-sm ${isVideoExpanded ? "left-1/2 -translate-x-1/2" : "right-3"}`}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={webglUpscaling && !webglUnavailable}
-                aria-label="WebGL 화질 개선"
-                title={webglUnavailable ? "현재 환경에서 화질 개선을 사용할 수 없어요" : "WebGL 화질 개선"}
-                disabled={webglUnavailable}
-                onClick={() => setWebglUpscaling((enabled) => !enabled)}
-                className={`inline-flex h-10 items-center justify-center rounded-xl px-2 text-[11px] font-bold ${webglUpscaling && !webglUnavailable ? "bg-[#a4d47d] text-[#15210e]" : "text-white"} disabled:cursor-not-allowed disabled:opacity-50`}
-              >
-                {webglUnavailable ? "개선 불가" : webglUpscaling ? "개선 켬" : "화질 개선"}
-              </button>
-              <button type="button" aria-label="영상 90도 왼쪽 회전" onClick={() => updateVideoRotation((videoRotation + 270) % 360)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><RotateCcw size={18} aria-hidden="true" /></button>
-              <button type="button" aria-label="영상 축소" onClick={() => updateVideoZoom(Math.max(100, videoZoom - 25))} disabled={videoZoom <= 100} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Minus size={18} aria-hidden="true" /></button>
-              <span aria-live="polite" className="min-w-10 text-center text-xs font-bold tabular-nums">{videoZoom}%</span>
-              <button type="button" aria-label="영상 확대" onClick={() => updateVideoZoom(Math.min(isVideoExpanded ? 300 : 200, videoZoom + 25))} disabled={videoZoom >= (isVideoExpanded ? 300 : 200)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Plus size={18} aria-hidden="true" /></button>
-              <button type="button" aria-label="영상 90도 오른쪽 회전" onClick={() => updateVideoRotation((videoRotation + 90) % 360)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><RotateCw size={18} aria-hidden="true" /></button>
+            <AnimatePresence initial={false} mode="wait">
               {isVideoExpanded ? (
-                <button type="button" aria-label="영상 확장 모드 닫기" onClick={collapseVideo} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20"><CollapseVideoIcon className="h-[18px] w-[18px]" /></button>
+                <motion.div
+                  key="expanded-controls"
+                  role="group"
+                  aria-label="영상 화면 조작"
+                  initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="absolute bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-40 flex items-center gap-1 rounded-2xl border border-white/15 bg-[#11180f]/75 p-1 text-white shadow-lg backdrop-blur-md sm:left-1/2 sm:right-auto sm:w-[min(28rem,calc(100%-1.5rem))] sm:-translate-x-1/2"
+                >
+                  <button type="button" aria-label="영상 90도 왼쪽 회전" onClick={() => updateVideoRotation((videoRotation + 270) % 360)} className="icon-button shrink-0 rounded-xl hover:bg-white/15"><RotateCcw size={18} aria-hidden="true" /></button>
+                  <button type="button" aria-label="영상 90도 오른쪽 회전" onClick={() => updateVideoRotation((videoRotation + 90) % 360)} className="icon-button shrink-0 rounded-xl hover:bg-white/15"><RotateCw size={18} aria-hidden="true" /></button>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={webglUpscaling && !webglUnavailable}
+                    aria-label="WebGL 화질 개선"
+                    title={webglUnavailable ? "현재 환경에서 화질 개선을 사용할 수 없어요" : "WebGL 화질 개선"}
+                    disabled={webglUnavailable}
+                    onClick={() => setWebglUpscaling((enabled) => !enabled)}
+                    className={`ml-1 inline-flex h-10 items-center justify-center rounded-xl px-3 text-[11px] font-bold ${webglUpscaling && !webglUnavailable ? "bg-[#a4d47d] text-[#15210e]" : "text-white hover:bg-white/10"} disabled:cursor-not-allowed disabled:opacity-50`}
+                  >
+                    {webglUnavailable ? "개선 불가" : webglUpscaling ? "개선 켬" : "화질 개선"}
+                  </button>
+                  <span className="flex-1" aria-hidden="true" />
+                  <button type="button" aria-label="영상 확장 모드 닫기" onClick={collapseVideo} className="icon-button shrink-0 rounded-xl bg-white/10 hover:bg-white/20"><CollapseVideoIcon className="h-[18px] w-[18px]" /></button>
+                </motion.div>
               ) : (
-                <button type="button" aria-label="영상 확장 모드" onClick={() => setIsVideoExpanded(true)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><ExpandVideoIcon className="h-[18px] w-[18px]" /></button>
+                <motion.div
+                  key="collapsed-controls"
+                  role="group"
+                  aria-label="영상 화면 조작"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  className="absolute bottom-3 right-3 flex items-center rounded-2xl border border-white/15 bg-[#11180f]/75 p-1 text-white shadow-lg backdrop-blur-md"
+                >
+                  <button type="button" aria-label="영상 확장 모드" onClick={() => setIsVideoExpanded(true)} className="icon-button rounded-xl hover:bg-white/15"><ExpandVideoIcon className="h-[18px] w-[18px]" /></button>
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
           </div>
         </section>
 

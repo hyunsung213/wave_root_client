@@ -2,6 +2,7 @@
 
 ## 2026-10-26
 
+- 라이브 확장 화면의 진입/복귀 레이아웃과 헤더·컨트롤에 애니메이션을 적용하고, 확장 컨테이너를 `z-40`으로 조정해 `z-50` 하단 네비게이션을 계속 표시함. 축소 상태에는 우하단 확장 버튼만, 확장 상태에는 좌우 회전·화질 개선·축소 컨트롤만 표시하고 줌 버튼/수치 UI를 제거함. 기존 확장 상태의 100–300% 핀치 줌은 유지함. 확장 영상에 `contain`을 적용하고 WebGL 셰이더에도 cover/contain 적합 및 레터박스 처리를 추가함. ESLint, `tsc --noEmit --incremental false`, Next.js production build 및 `git diff --check` 통과. 실기기 핀치 검증은 수행하지 않음.
 - 라이브 카메라에 헤더를 유지하는 화면 확장 모드를 구현함. 확장 시 메모 버튼과 식물 선택 칩 및 페이지 좌우 스와이프를 비활성화하고, WebGL 스트림 인스턴스를 유지한 채 Pointer Events 기반 100–300% 핀치 줌과 화면 회전/확대·축소/복귀 컨트롤을 제공함. 확대/축소 복귀와 식물 변경에서 줌 상태를 초기화함. ESLint(`app`, `components`), `tsc --noEmit --incremental false`, Next.js production build 및 `git diff --check` 통과. 실기기 제스처 검증은 수행하지 않음.
 - 라이브 식물 상세 응답의 `rdkCameraId`/`rdkZone`/`streamingStatus`를 이용해 미배정 카메라와 RDK 스트림 URL 발급 실패를 구분하도록 업데이트함. URL 발급 실패는 자동으로 최대 3회 재시도하고, 상태 문구를 “카메라 없음” 대신 연결 복구 안내로 표시함. 프론트 ESLint, `tsc --noEmit --incremental false`, Next.js production build 및 `git diff --check` 통과.
 - 마켓 식물 카드에 해시태그를 표시하고 누락된 상추·로메인·토마토·고추 태그를 `plantsData.ts`와 `PLANT_INFO.txt`에 추가함. 분양 상세의 생장 형태 라벨을 실제 데이터 의미에 맞췄으며 마이페이지 회사 연락처는 대표자·전화번호·주소를 `준비 중`으로 표시함. 프로필에 로그아웃 액션을 연결하고 프로필·알림 헤더에만 압축 여백을 적용함. ESLint, TypeScript 검사, Next.js production build, `git diff --check` 통과. 백엔드 기본 SENSOR 알림 제외는 별도 opt-in API로 연결됨.

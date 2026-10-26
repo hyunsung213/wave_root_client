@@ -9,6 +9,7 @@ type WebGLStreamProps = {
   alt: string;
   className: string;
   style: CSSProperties;
+  fit: "cover" | "contain";
   enhanced: boolean;
   onLoad: () => void;
   onError: () => void;
@@ -32,6 +33,7 @@ in vec2 vUv;
 uniform sampler2D uImage;
 uniform vec2 uSourceSize;
 uniform vec2 uOutputSize;
+uniform int uFitMode;
 out vec4 outColor;
 float cubic(float x) {
   x = abs(x);
@@ -42,9 +44,19 @@ float cubic(float x) {
 float luminance(vec2 uv) {
   return dot(texture(uImage, uv).rgb, vec3(0.299, 0.587, 0.114));
 }
-vec2 coverUv(vec2 uv) {
+vec2 fitUv(vec2 uv) {
   float sourceRatio = uSourceSize.x / uSourceSize.y;
   float outputRatio = uOutputSize.x / uOutputSize.y;
+  if (uFitMode == 1) {
+    if (sourceRatio > outputRatio) {
+      float visible = outputRatio / sourceRatio;
+      uv.y = (uv.y - 0.5) / visible + 0.5;
+    } else {
+      float visible = sourceRatio / outputRatio;
+      uv.x = (uv.x - 0.5) / visible + 0.5;
+    }
+    return uv;
+  }
   if (sourceRatio > outputRatio) {
     float visible = outputRatio / sourceRatio;
     uv.x = (uv.x - 0.5) * visible + 0.5;
@@ -55,7 +67,12 @@ vec2 coverUv(vec2 uv) {
   return uv;
 }
 void main() {
-  vec2 uv = coverUv(vUv);
+  vec2 fittedUv = fitUv(vUv);
+  if (any(lessThan(fittedUv, vec2(0.0))) || any(greaterThan(fittedUv, vec2(1.0)))) {
+    outColor = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
+  vec2 uv = fittedUv;
   vec2 position = uv * uSourceSize - 0.5;
   vec2 base = floor(position);
   vec2 fraction = fract(position);
@@ -150,6 +167,7 @@ export default function WebGLStream({
   alt,
   className,
   style,
+  fit,
   enhanced,
   onLoad,
   onError,
@@ -251,6 +269,7 @@ export default function WebGLStream({
           gl!.uniform1i(gl!.getUniformLocation(reconstruction!, "uImage"), 0);
           gl!.uniform2f(gl!.getUniformLocation(reconstruction!, "uSourceSize"), image.naturalWidth, image.naturalHeight);
           gl!.uniform2f(gl!.getUniformLocation(reconstruction!, "uOutputSize"), width, height);
+          gl!.uniform1i(gl!.getUniformLocation(reconstruction!, "uFitMode"), fit === "contain" ? 1 : 0);
           gl!.drawArrays(gl!.TRIANGLES, 0, 3);
 
           gl!.bindFramebuffer(gl!.FRAMEBUFFER, null);
@@ -284,7 +303,7 @@ export default function WebGLStream({
         if (sharpening) gl.deleteProgram(sharpening);
       }
     };
-  }, [enhanced, onEnhancementUnavailable, plainFallback, streamIdentity]);
+  }, [enhanced, fit, onEnhancementUnavailable, plainFallback, streamIdentity]);
 
   return (
     <>
