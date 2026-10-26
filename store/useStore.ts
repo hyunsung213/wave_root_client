@@ -20,7 +20,10 @@ export interface Plant {
   growthPercent?: number;
   growthDays?: number;
   growthTargetDays?: number;
+  rdkCameraId?: string | null;
+  rdkZone?: number | null;
   streamingUrl?: string | null;
+  streamingStatus?: "unassigned" | "ready" | "unavailable";
 }
 
 interface AppState {

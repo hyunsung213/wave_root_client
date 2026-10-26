@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Camera, ChevronDown, Edit3, Minus, Plus, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, PanInfo } from "framer-motion";
@@ -13,6 +13,16 @@ import { useStore, type Plant } from "@/store/useStore";
 import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
 import BrandLogo from "@/components/layout/BrandLogo";
 import WebGLStream from "@/components/live/WebGLStream";
+import { CollapseVideoIcon, ExpandVideoIcon } from "@/components/live/StreamViewIcons";
+
+function hasCameraAssignment(
+  cameraId: string | null | undefined,
+  zone: number | null | undefined,
+  streamingStatus?: Plant["streamingStatus"],
+) {
+  if (streamingStatus) return streamingStatus !== "unassigned";
+  return Boolean(cameraId && zone != null);
+}
 
 export default function LivePage() {
   const params = useParams();
@@ -27,16 +37,21 @@ export default function LivePage() {
   const [plantRetry, setPlantRetry] = useState(0);
   const cachedPlant = myPlants.find((item) => item._id === plantId) || null;
   const plant = fetchedPlant?._id === plantId ? fetchedPlant : cachedPlant;
+  const assignedCamera = hasCameraAssignment(plant?.rdkCameraId, plant?.rdkZone, plant?.streamingStatus);
   const plantLoading = !plant && (plantRequest?.id !== plantId || plantRequest?.status === "loading");
   const plantError = !plant && plantRequest?.id === plantId && plantRequest?.status === "error";
 
   const [isRecordSheetOpen, setIsRecordSheetOpen] = useState(false);
   const [videoState, setVideoState] = useState<{ src: string | null; status: "loading" | "ready" | "error" | "unavailable" }>(() => ({
     src: plant?.streamingUrl ?? null,
-    status: plant?.streamingUrl ? "loading" : "unavailable",
+    status: plant?.streamingUrl || hasCameraAssignment(plant?.rdkCameraId, plant?.rdkZone, plant?.streamingStatus) ? "loading" : "unavailable",
   }));
   const streamUrl = plant?.streamingUrl ?? null;
-  const videoStatus = videoState.src === streamUrl ? videoState.status : streamUrl ? "loading" : "unavailable";
+  const issuancePending = assignedCamera &&
+    (plantRequest?.id !== plantId || plantRequest?.status === "loading");
+  const videoStatus = videoState.src === streamUrl
+    ? issuancePending ? "loading" : videoState.status
+    : streamUrl ? "loading" : assignedCamera ? "loading" : "unavailable";
   const [videoRetry, setVideoRetry] = useState(0);
   const [autoReconnectCount, setAutoReconnectCount] = useState(0);
   const [webglUpscaling, setWebglUpscaling] = useState(false);
@@ -51,10 +66,68 @@ export default function LivePage() {
   const [imageCaptureLoading, setImageCaptureLoading] = useState(false);
   const [imageCaptureFeedback, setImageCaptureFeedback] = useState("");
   const [videoView, setVideoView] = useState({ plantId: activePlantKey, rotation: 0, zoom: 100 });
+  const [isVideoExpanded, setIsVideoExpanded] = useState(false);
+  const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchStartRef = useRef({ distance: 0, zoom: 100 });
+  const previousPlantKeyRef = useRef(activePlantKey);
   const videoRotation = videoView.plantId === activePlantKey ? videoView.rotation : 0;
   const videoZoom = videoView.plantId === activePlantKey ? videoView.zoom : 100;
   const updateVideoRotation = (rotation: number) => setVideoView({ plantId: activePlantKey, rotation, zoom: videoZoom });
   const updateVideoZoom = (zoom: number) => setVideoView({ plantId: activePlantKey, rotation: videoRotation, zoom });
+
+  useEffect(() => {
+    if (previousPlantKeyRef.current === activePlantKey) return;
+    previousPlantKeyRef.current = activePlantKey;
+    activePointersRef.current.clear();
+    setVideoView({ plantId: activePlantKey, rotation: 0, zoom: 100 });
+    setIsVideoExpanded(false);
+  }, [activePlantKey]);
+
+  useEffect(() => {
+    if (!isVideoExpanded) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsVideoExpanded(false);
+        setVideoView({ plantId: activePlantKey, rotation: videoRotation, zoom: 100 });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isVideoExpanded, videoRotation, videoZoom, activePlantKey]);
+
+  const handleVideoPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isVideoExpanded || (event.target as HTMLElement).closest("button")) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (activePointersRef.current.size === 2) {
+      const [first, second] = Array.from(activePointersRef.current.values());
+      pinchStartRef.current = {
+        distance: Math.hypot(second.x - first.x, second.y - first.y),
+        zoom: videoZoom,
+      };
+    }
+  };
+
+  const handleVideoPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isVideoExpanded || !activePointersRef.current.has(event.pointerId)) return;
+    activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (activePointersRef.current.size < 2 || pinchStartRef.current.distance === 0) return;
+    const [first, second] = Array.from(activePointersRef.current.values());
+    const distance = Math.hypot(second.x - first.x, second.y - first.y);
+    const zoom = Math.round((pinchStartRef.current.zoom * distance / pinchStartRef.current.distance) / 5) * 5;
+    updateVideoZoom(Math.max(100, Math.min(300, zoom)));
+  };
+
+  const handleVideoPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(event.pointerId);
+    pinchStartRef.current.distance = 0;
+  };
+
+  const collapseVideo = () => {
+    activePointersRef.current.clear();
+    setIsVideoExpanded(false);
+    updateVideoZoom(100);
+  };
 
   useEffect(() => {
     const previewUrl = recordImage?.previewUrl;
@@ -71,17 +144,30 @@ export default function LivePage() {
       if (data.success && fetched?._id) {
         setFetchedPlant(fetched);
         setPlantRequest({ id: plantId, status: "ready" });
-      } else setPlantRequest({ id: plantId, status: "error" });
+        if (!fetched.streamingUrl) {
+          setVideoState({
+            src: null,
+            status: hasCameraAssignment(fetched.rdkCameraId, fetched.rdkZone, fetched.streamingStatus) ? "error" : "unavailable",
+          });
+        }
+      } else {
+        setPlantRequest({ id: plantId, status: "error" });
+        setVideoState({ src: null, status: assignedCamera ? "error" : "unavailable" });
+      }
     }).catch(() => {
-      if (active) setPlantRequest({ id: plantId, status: "error" });
+      if (active) {
+        setPlantRequest({ id: plantId, status: "error" });
+        setVideoState({ src: null, status: assignedCamera ? "error" : "unavailable" });
+      }
     });
     return () => { active = false; };
-  }, [plantId, plantRetry, plant?.streamingUrl]);
+  }, [assignedCamera, plantId, plantRetry, plant?.rdkCameraId, plant?.rdkZone, plant?.streamingUrl]);
 
-  const retryPlantStream = useCallback(async () => {
+  const retryPlantStream = useCallback(async (automatic = false) => {
     if (typeof plantId !== "string") return;
     setVideoState({ src: streamUrl, status: "loading" });
     setPlantRequest({ id: plantId, status: "loading" });
+    if (!automatic) setAutoReconnectCount(0);
     setVideoRetry((value) => value + 1);
     try {
       const data = await getPlantById(plantId);
@@ -89,22 +175,28 @@ export default function LivePage() {
       if (!data.success || !refreshed?._id) throw new Error("식물 정보를 갱신할 수 없습니다.");
       setFetchedPlant(refreshed);
       setPlantRequest({ id: plantId, status: "ready" });
-      if (!refreshed.streamingUrl) setVideoState({ src: null, status: "unavailable" });
+      if (!refreshed.streamingUrl) {
+        setVideoState({
+          src: null,
+          status: hasCameraAssignment(refreshed.rdkCameraId, refreshed.rdkZone, refreshed.streamingStatus) ? "error" : "unavailable",
+        });
+      }
     } catch (error) {
       console.error("Failed to refresh plant stream:", error);
+      setPlantRequest({ id: plantId, status: "error" });
       setVideoState({ src: streamUrl, status: "error" });
     }
   }, [plantId, streamUrl]);
 
   useEffect(() => {
-    if (videoStatus !== "error" || !streamUrl || autoReconnectCount >= 3) return;
+    if (videoStatus !== "error" || !assignedCamera || autoReconnectCount >= 3) return;
     const delayMs = 1000 * 2 ** autoReconnectCount;
     const timeoutId = window.setTimeout(() => {
       setAutoReconnectCount((count) => count + 1);
-      void retryPlantStream();
+      void retryPlantStream(true);
     }, delayMs);
     return () => window.clearTimeout(timeoutId);
-  }, [autoReconnectCount, retryPlantStream, streamUrl, videoStatus]);
+  }, [assignedCamera, autoReconnectCount, retryPlantStream, videoStatus]);
 
   useEffect(() => {
     if (typeof plantId !== "string") return;
@@ -226,7 +318,7 @@ export default function LivePage() {
     <div className="flex h-full flex-col items-center justify-center gap-4 bg-white px-6 text-center text-gray-800">
       <h1 aria-label="싹키워"><BrandLogo /></h1>
       <p role={plantError ? "alert" : "status"}>{plantLoading ? "식물 정보를 불러오는 중이에요…" : "식물 정보를 찾지 못했어요."}</p>
-      {!plantLoading && <button type="button" onClick={() => { if (typeof plantId === "string") setPlantRequest({ id: plantId, status: "loading" }); setPlantRetry((value) => value + 1); }} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">다시 시도</button>}
+      {(!plantLoading && <button type="button" onClick={() => { if (typeof plantId === "string") setPlantRequest({ id: plantId, status: "loading" }); setPlantRetry((value) => value + 1); }} className="min-h-11 rounded-xl bg-[#6ea447] px-5 font-bold text-white">다시 시도</button>)}
       {!plantLoading && <button type="button" onClick={() => router.push("/home")} className="min-h-11 px-5 font-semibold text-gray-700">홈으로 이동</button>}
     </div>
   );
@@ -235,11 +327,13 @@ export default function LivePage() {
     <>
       {/* ═══ Main Live View ═══ */}
       <motion.div
-        drag="x"
+        drag={isVideoExpanded ? false : "x"}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.2}
         onDragEnd={handleDragEnd}
-        className="relative flex h-full min-h-full w-full flex-col gap-2 overflow-hidden bg-white px-4 pb-3 pt-1"
+        className={isVideoExpanded
+          ? "fixed inset-0 z-[60] flex h-[100dvh] min-h-0 w-full flex-col gap-2 overflow-hidden bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1"
+          : "relative flex h-full min-h-full w-full flex-col gap-2 overflow-hidden bg-white px-4 pb-3 pt-1"}
       >
         <header className="app-page-header -mx-4 flex shrink-0 items-center justify-between px-4 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <h1 aria-label="싹키워"><BrandLogo /></h1>
@@ -254,8 +348,15 @@ export default function LivePage() {
           </button>
         </header>
 
-        <section aria-label={`${plant.name} 실시간 카메라`} className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-[#e7eadf] bg-[#171b16] shadow-[0_10px_28px_rgba(51,69,39,0.12)]">
-          <div className="relative min-h-0 flex-1 overflow-hidden bg-[#171b16]" style={{ willChange: "transform", isolation: "isolate" }}>
+        <section aria-label={`${plant.name} 실시간 카메라`} className={`relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#171b16] ${isVideoExpanded ? "rounded-[28px] border border-[#343d31] shadow-[0_14px_50px_rgba(16,23,14,0.28)]" : "rounded-[24px] border border-[#e7eadf] shadow-[0_10px_28px_rgba(51,69,39,0.12)]"}`}>
+          <div
+            className={`relative min-h-0 flex-1 overflow-hidden bg-[#171b16] ${isVideoExpanded ? "touch-none" : ""}`}
+            style={{ willChange: "transform", isolation: "isolate" }}
+            onPointerDown={handleVideoPointerDown}
+            onPointerMove={handleVideoPointerMove}
+            onPointerUp={handleVideoPointerEnd}
+            onPointerCancel={handleVideoPointerEnd}
+          >
             {plant.streamingUrl && (
               <WebGLStream
                 key={`${plant._id}:${videoRetry}:${plant.streamingUrl}`}
@@ -271,14 +372,14 @@ export default function LivePage() {
             )}
             {videoStatus !== "ready" && (
               <p aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-xs font-semibold text-white/70">
-                {videoStatus === "error" ? "카메라 연결을 복구하고 있어요." : videoStatus === "loading" ? "카메라에 연결하고 있어요…" : "연결된 카메라가 없어요."}
+                {videoStatus === "error" ? "카메라 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요." : videoStatus === "loading" ? "카메라에 연결하고 있어요…" : "연결된 카메라가 없어요."}
               </p>
             )}
             <span role="status" className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-gray-800 shadow-sm backdrop-blur-sm">
               <span aria-hidden="true" className={`h-2 w-2 rounded-full ${videoStatus === "ready" ? "animate-pulse bg-red-500" : "bg-gray-400"}`} />
               {videoStatus === "ready" ? "LIVE" : videoStatus === "error" ? "연결 확인" : videoStatus === "loading" ? "연결 중" : "카메라 없음"}
             </span>
-            <div role="group" aria-label="영상 화면 조작" className="absolute bottom-3 right-3 flex items-center gap-1 rounded-2xl border border-white/15 bg-[#11180f]/85 p-1 text-white shadow-lg backdrop-blur-sm">
+            <div role="group" aria-label="영상 화면 조작" className={`absolute bottom-3 flex max-w-[calc(100%-1rem)] items-center gap-1 overflow-x-auto rounded-2xl border border-white/15 bg-[#11180f]/85 p-1 text-white shadow-lg backdrop-blur-sm ${isVideoExpanded ? "left-1/2 -translate-x-1/2" : "right-3"}`}>
               <button
                 type="button"
                 role="switch"
@@ -294,14 +395,19 @@ export default function LivePage() {
               <button type="button" aria-label="영상 90도 왼쪽 회전" onClick={() => updateVideoRotation((videoRotation + 270) % 360)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><RotateCcw size={18} aria-hidden="true" /></button>
               <button type="button" aria-label="영상 축소" onClick={() => updateVideoZoom(Math.max(100, videoZoom - 25))} disabled={videoZoom <= 100} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Minus size={18} aria-hidden="true" /></button>
               <span aria-live="polite" className="min-w-10 text-center text-xs font-bold tabular-nums">{videoZoom}%</span>
-              <button type="button" aria-label="영상 확대" onClick={() => updateVideoZoom(Math.min(200, videoZoom + 25))} disabled={videoZoom >= 200} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Plus size={18} aria-hidden="true" /></button>
+              <button type="button" aria-label="영상 확대" onClick={() => updateVideoZoom(Math.min(isVideoExpanded ? 300 : 200, videoZoom + 25))} disabled={videoZoom >= (isVideoExpanded ? 300 : 200)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15 disabled:opacity-40"><Plus size={18} aria-hidden="true" /></button>
               <button type="button" aria-label="영상 90도 오른쪽 회전" onClick={() => updateVideoRotation((videoRotation + 90) % 360)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><RotateCw size={18} aria-hidden="true" /></button>
+              {isVideoExpanded ? (
+                <button type="button" aria-label="영상 확장 모드 닫기" onClick={collapseVideo} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20"><CollapseVideoIcon className="h-[18px] w-[18px]" /></button>
+              ) : (
+                <button type="button" aria-label="영상 확장 모드" onClick={() => setIsVideoExpanded(true)} className="inline-flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/15"><ExpandVideoIcon className="h-[18px] w-[18px]" /></button>
+              )}
             </div>
           </div>
         </section>
 
         {/* ═══ Bottom Action Button ═══ */}
-        <motion.div
+        {!isVideoExpanded && <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
@@ -318,10 +424,10 @@ export default function LivePage() {
             <span>메모 남기기</span>
           </motion.button>
 
-        </motion.div>
+        </motion.div>}
 
         {/* 현재 식물 주변 최대 3개까지 가운데 정렬해 표시합니다. */}
-        {myPlants && myPlants.length > 1 && (
+        {!isVideoExpanded && myPlants && myPlants.length > 1 && (
           <div className="relative z-20 order-1 flex w-full shrink-0 justify-center gap-2">
             {visiblePlants.map((p: Plant) => (
               <button type="button"
