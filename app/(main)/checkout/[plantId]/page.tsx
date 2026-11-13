@@ -3,19 +3,33 @@
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Check, ChevronLeft, Clipboard, TicketCheck, Sprout } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { plantsData } from "@/lib/plantsData";
 import { getPlantImage } from "@/lib/plantImages";
 import { useStore } from "@/store/useStore";
-import { getCatalog, getMyCoupons, getMyOrder, type AvailableCoupon, type CatalogProduct } from "@/lib/get";
+import { getCatalog, getMyCoupons, getMyOrder, type AvailableCoupon, type CatalogProduct, type FarmSiteCode } from "@/lib/get";
 import { cancelAdoptionOrder, createAdoptionOrder, validateAdoptionCoupon, type CheckoutOrder } from "@/lib/post";
 import BottomSheet from "@/components/ui/BottomSheet";
 
 const PASS_PRICE = 3900;
 
+function subscribeToSiteQuery(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
+function getSiteQuerySnapshot(): FarmSiteCode {
+  return new URLSearchParams(window.location.search).get("site") === "Y_FARM" ? "Y_FARM" : "HYDROPONIC";
+}
+
+function getServerSiteSnapshot(): FarmSiteCode {
+  return "HYDROPONIC";
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const params = useParams<{ plantId: string }>();
+  const siteCode = useSyncExternalStore(subscribeToSiteQuery, getSiteQuerySnapshot, getServerSiteSnapshot);
   const plant = plantsData.find((item) => item.id === params.plantId);
   const pendingPlantName = useStore((state) => state.pendingPlantName);
   const [coupons, setCoupons] = useState<AvailableCoupon[]>([]);
@@ -37,16 +51,17 @@ export default function CheckoutPage() {
   const amountDue = validatedCoupon?.amountDue ?? subtotal;
   const plantName = pendingPlantName?.trim() || (plant ? `우리집 ${plant.name}` : "");
   const isFreeOrder = order?.amountDue === 0 && order.status !== "cancelled";
+  const orderStorageKey = `checkout-order:${siteCode}:${params.plantId}`;
 
   useEffect(() => {
     let active = true;
-    getCatalog().then((data) => {
+    getCatalog(siteCode).then((data) => {
       if (!active) return;
       setCatalogProduct(data.products.find((item) => item.id === params.plantId) ?? null);
       setCatalogState("ready");
     }).catch(() => { if (active) setCatalogState("error"); });
     return () => { active = false; };
-  }, [params.plantId]);
+  }, [params.plantId, siteCode]);
 
   useEffect(() => {
     let active = true;
@@ -61,16 +76,16 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     let active = true;
-    const orderId = sessionStorage.getItem(`checkout-order:${params.plantId}`);
+    const orderId = sessionStorage.getItem(orderStorageKey);
     if (orderId) {
       getMyOrder(orderId).then((data) => {
         if (active && data.order?.productId === params.plantId) setOrder(data.order);
       }).catch(() => {
-        if (active) sessionStorage.removeItem(`checkout-order:${params.plantId}`);
+        if (active) sessionStorage.removeItem(orderStorageKey);
       });
     }
     return () => { active = false; };
-  }, [params.plantId]);
+  }, [orderStorageKey, params.plantId]);
 
   function refreshCoupons() {
     setCouponLoadState("loading");
@@ -85,7 +100,7 @@ export default function CheckoutPage() {
     if (!code.trim()) { setError("쿠폰 코드를 입력해주세요."); return; }
     setBusy(true);
     try {
-      const result = await validateAdoptionCoupon(plant.id, code.trim());
+      const result = await validateAdoptionCoupon(plant.id, code.trim(), siteCode);
       setValidatedCoupon({ code: result.coupon.code, name: result.coupon.name, discountAmount: result.discountAmount, amountDue: result.amountDue });
       setCouponCode(result.coupon.code);
     } catch (cause) {
@@ -105,9 +120,10 @@ export default function CheckoutPage() {
         productId: plant.id,
         plantName,
         depositorName: depositorName.trim() || plantName,
+        siteCode,
         ...(validatedCoupon ? { couponCode: validatedCoupon.code } : {})
       });
-      sessionStorage.setItem(`checkout-order:${plant.id}`, result.order._id);
+      sessionStorage.setItem(orderStorageKey, result.order._id);
       setOrder(result.order);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "주문을 접수하지 못했어요. 다시 시도해주세요.");
@@ -127,7 +143,7 @@ export default function CheckoutPage() {
       const result = await cancelAdoptionOrder(order._id);
       setOrder(result.order);
       setCancelSheetOpen(false);
-      sessionStorage.removeItem(`checkout-order:${plant.id}`);
+      sessionStorage.removeItem(orderStorageKey);
       refreshCoupons();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "주문을 취소하지 못했어요.");
@@ -206,10 +222,14 @@ export default function CheckoutPage() {
           ) : null}
           {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
           {order.status === "pending" && <button type="button" disabled={busy} onClick={() => { setError(""); setCancelSheetOpen(true); }} className="min-h-11 w-full rounded-xl border border-rose-200 font-bold text-rose-700 disabled:opacity-50">주문 취소</button>}
-          {(order.status === "confirmed" || order.status === "cancelled") && <button type="button" onClick={() => { sessionStorage.removeItem(`checkout-order:${plant.id}`); setOrder(null); setError(""); setCouponCode(""); setValidatedCoupon(null); refreshCoupons(); }} className="min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">새 주문 시작</button>}
+          {(order.status === "confirmed" || order.status === "cancelled") && <button type="button" onClick={() => { sessionStorage.removeItem(orderStorageKey); setOrder(null); setError(""); setCouponCode(""); setValidatedCoupon(null); refreshCoupons(); }} className="min-h-11 w-full rounded-xl border border-gray-200 font-bold text-gray-700">새 주문 시작</button>}
           <button type="button" onClick={() => router.push("/home")} className="min-h-12 w-full rounded-2xl bg-[#6ea447] font-extrabold text-white">내 정원으로</button>
         </div>
       ) : <form onSubmit={submitOrder} className="space-y-5">
+      <div className="rounded-2xl border border-[#e0e8d9] bg-[#f6f9f3] px-4 py-3 text-sm">
+        <p className="font-extrabold text-[#416a34]">재배 공간 · {siteCode === "HYDROPONIC" ? "수경재배" : "Y-Farm"}</p>
+        <p className="mt-1 text-xs leading-5 text-gray-600">주문 확정 후 선택한 공간의 식물 목록에 연결됩니다.</p>
+      </div>
       {!canOrder && <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{catalogState === "loading" ? "분양 가능 여부를 확인하고 있어요…" : catalogState === "error" ? "분양 상태를 확인할 수 없어요. 잠시 후 다시 방문해주세요." : catalogProduct?.status === "upcoming" ? "이 식물은 분양 예정입니다." : "이 식물은 현재 분양할 수 없습니다."}</p>}
       <section className="flex items-center gap-4 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="relative h-20 w-20 shrink-0 rounded-2xl bg-gray-50">

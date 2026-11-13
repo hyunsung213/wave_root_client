@@ -76,6 +76,7 @@ export default function HomePage() {
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [gardenSiteFilter, setGardenSiteFilter] = useState<"ALL" | "HYDROPONIC" | "Y_FARM">("ALL");
   // 서버 렌더 시점과 시간대가 달라질 수 있어 마운트 후에 인사말을 정한다.
   const [greeting, setGreeting] = useState("반가워요");
   const pullState = usePullToRefresh(() => setRetryCount((value) => value + 1));
@@ -174,6 +175,10 @@ export default function HomePage() {
   const averageGrowth = myPlants.length > 0 && growthPercentages.length === myPlants.length
     ? Math.round(growthPercentages.reduce((sum, value) => sum + value, 0) / growthPercentages.length)
     : null;
+  const gardenPlants = gardenSiteFilter === "ALL"
+    ? myPlants
+    : myPlants.filter((plant) => (plant.siteCode || "HYDROPONIC") === gardenSiteFilter);
+  const siteCount = (siteCode: "HYDROPONIC" | "Y_FARM") => myPlants.filter((plant) => (plant.siteCode || "HYDROPONIC") === siteCode).length;
 
   const formatGrowthDate = (event: GrowthRecord) => formatEventDate(event.eventDate || event.createdAt);
 
@@ -321,6 +326,19 @@ export default function HomePage() {
             <span className="w-1 h-5 bg-[#6ea447] rounded-full"></span>
             내 정원의 성장
           </h2>
+          <div className="mb-3 grid grid-cols-3 rounded-2xl bg-[#f4f6f1] p-1" role="group" aria-label="재배 공간별 식물 보기">
+            {([
+              ["ALL", "전체", myPlants.length],
+              ["HYDROPONIC", "수경재배", siteCount("HYDROPONIC")],
+              ["Y_FARM", "Y-Farm", siteCount("Y_FARM")],
+            ] as const).map(([code, label, count]) => <button
+              key={code}
+              type="button"
+              aria-pressed={gardenSiteFilter === code}
+              onClick={() => setGardenSiteFilter(code)}
+              className={`min-h-10 rounded-xl px-2 text-xs font-bold transition-colors ${gardenSiteFilter === code ? "bg-white text-[#416a34] shadow-sm" : "text-gray-500"}`}
+            >{label} <span className="ml-0.5 opacity-70">{count}</span></button>)}
+          </div>
 
           {loading ? (
             <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
@@ -336,7 +354,7 @@ export default function HomePage() {
             <RequestError onRetry={() => setRetryCount((value) => value + 1)} />
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
-              {myPlants.map((plant, idx) => {
+              {gardenPlants.map((plant, idx) => {
                 const isActive = idx === 0;
                 const percent = typeof plant.growthPercent === "number" && Number.isFinite(plant.growthPercent)
                   ? Math.max(0, Math.min(100, Math.round(plant.growthPercent)))
@@ -360,6 +378,7 @@ export default function HomePage() {
                       />
                     </div>
                     <span className="text-[12px] font-extrabold text-gray-800 mb-1 text-center leading-tight">{plant.name}</span>
+                    <span className="mb-1 text-[9px] font-semibold text-gray-400">{plant.siteCode === "Y_FARM" ? "Y-Farm" : "수경재배"}</span>
                     <span className={`text-[11px] font-extrabold mb-2 ${isActive ? 'text-[#6ea447]' : 'text-gray-400'}`}>
                       {percent === null ? "—" : `${percent}%`}
                     </span>

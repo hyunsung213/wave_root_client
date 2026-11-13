@@ -2,13 +2,13 @@
 
 /* eslint-disable @next/next/no-img-element -- MJPEG streams must bypass image optimization. */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, PanInfo } from "framer-motion";
-import { Camera, ChevronDown, Edit3, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
+import { Camera, ChevronDown, Droplets, Edit3, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import BottomSheet from "@/components/ui/BottomSheet";
-import { getPlantById } from "@/lib/get";
-import { createEvent } from "@/lib/post";
+import { getPlantById, getPlantCurrent, type PlantSensor } from "@/lib/get";
+import { createEvent, getWaterCommand, requestPlantWater, type WaterCommand } from "@/lib/post";
 import { useStore, type Plant } from "@/store/useStore";
 import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
 import BrandLogo from "@/components/layout/BrandLogo";
@@ -36,6 +36,8 @@ export default function LivePage() {
   const [plantRetry, setPlantRetry] = useState(0);
   const cachedPlant = myPlants.find((item) => item._id === plantId) || null;
   const plant = fetchedPlant?._id === plantId ? fetchedPlant : cachedPlant;
+  const irrigationReady = plant?.capabilities?.irrigation === true;
+  const hasCapabilities = Boolean(plant?.capabilities);
   const assignedCamera = hasCameraAssignment(plant?.rdkCameraId, plant?.rdkZone, plant?.streamingStatus);
   const plantLoading = !plant && (plantRequest?.id !== plantId || plantRequest?.status === "loading");
   const plantError = !plant && plantRequest?.id === plantId && plantRequest?.status === "error";
@@ -58,19 +60,26 @@ export default function LivePage() {
   const [recordSubmitting, setRecordSubmitting] = useState(false);
   const [recordError, setRecordError] = useState("");
   const [recordImage, setRecordImage] = useState<{ plantId: string; file: File; previewUrl: string } | null>(null);
+  const [waterSheetOpen, setWaterSheetOpen] = useState(false);
+  const [waterVolume, setWaterVolume] = useState(20);
+  const [waterCommand, setWaterCommand] = useState<WaterCommand | null>(null);
+  const [waterSubmitting, setWaterSubmitting] = useState(false);
+  const [waterError, setWaterError] = useState("");
+  const [waterRetryPlantId, setWaterRetryPlantId] = useState<string | null>(null);
+  const [waterStatus, setWaterStatus] = useState("");
+  // Keep the same key and volume after an uncertain network response; retrying
+  // must query the original command instead of creating a second watering.
+  const waterAttemptRef = useRef<{ plantId: string; volume: number; key: string } | null>(null);
   const activeRecordImage = recordImage?.plantId === plantId ? recordImage : null;
   const [imageCaptureLoading, setImageCaptureLoading] = useState(false);
   const [imageCaptureFeedback, setImageCaptureFeedback] = useState("");
   const [videoView, setVideoView] = useState({ plantId: activePlantKey, rotation: 0 });
   const [expandedForPlantKey, setExpandedForPlantKey] = useState<string | null>(null);
   const isVideoExpanded = expandedForPlantKey === activePlantKey;
-  const [fullStreamUnavailable, setFullStreamUnavailable] = useState<{ plantKey: string; streamUrl: string } | null>(null);
-  const fullStreamFallbackActive = fullStreamUnavailable?.plantKey === activePlantKey && fullStreamUnavailable.streamUrl === streamUrl;
   const displayStreamUrl = streamUrl
     ? (() => {
         const url = new URL(streamUrl);
-        if (fullStreamFallbackActive) url.searchParams.set("mode", "crop");
-        else url.searchParams.set("mode", "full");
+        url.searchParams.set("mode", isVideoExpanded ? "full" : "crop");
         return url.toString();
       })()
     : null;
@@ -89,7 +98,81 @@ export default function LivePage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isVideoExpanded]);
 
+  // 두 손가락 핀치로 1~4배 확대하고, 확대 상태에서는 한 손가락으로 이동한다.
+  const pointersRef = useRef(new Map());
+  const gestureRef = useRef({ distance: 0, centerX: 0, centerY: 0, scale: 1, x: 0, y: 0 });
+  const [videoZoom, setVideoZoom] = useState({ plantKey: activePlantKey, scale: 1, x: 0, y: 0 });
+  const activeZoom = videoZoom.plantKey === activePlantKey ? videoZoom : { plantKey: activePlantKey, scale: 1, x: 0, y: 0 };
+  const clampOffset = (value: number, span: number, scale: number) => {
+    const limit = Math.max(0, (span * (scale - 1)) / 2);
+    return Math.min(limit, Math.max(-limit, value));
+  };
+  const pinchDistance = () => {
+    const points = Array.from(pointersRef.current.values());
+    if (points.length !== 2) return null;
+    const first = points[0];
+    const second = points[1];
+    return { distance: Math.hypot(second.x - first.x, second.y - first.y), centerX: (first.x + second.x) / 2, centerY: (first.y + second.y) / 2 };
+  };
+  const onStagePointerDown = (event: React.PointerEvent) => {
+    if (!isVideoExpanded) return;
+    if (event.target instanceof Element && event.target.closest("button")) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const pinch = pinchDistance();
+    gestureRef.current = pinch
+      ? { distance: Math.max(1, pinch.distance), centerX: pinch.centerX, centerY: pinch.centerY, scale: activeZoom.scale, x: activeZoom.x, y: activeZoom.y }
+      : { distance: 0, centerX: event.clientX, centerY: event.clientY, scale: activeZoom.scale, x: activeZoom.x, y: activeZoom.y };
+  };
+  const onStagePointerMove = (event: React.PointerEvent) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const gesture = gestureRef.current;
+    const width = event.currentTarget.clientWidth;
+    const height = event.currentTarget.clientHeight;
+    const pinch = pinchDistance();
+    if (gesture.distance !== 0 && pinch) {
+      const scale = Math.min(4, Math.max(1, (gesture.scale * pinch.distance) / gesture.distance));
+      setVideoZoom({ plantKey: activePlantKey, scale, x: clampOffset(gesture.x + (pinch.centerX - gesture.centerX), width, scale), y: clampOffset(gesture.y + (pinch.centerY - gesture.centerY), height, scale) });
+      return;
+    }
+    if (Math.round(gesture.scale * 100) !== 100) {
+      setVideoZoom({ plantKey: activePlantKey, scale: gesture.scale, x: clampOffset(gesture.x + (event.clientX - gesture.centerX), width, gesture.scale), y: clampOffset(gesture.y + (event.clientY - gesture.centerY), height, gesture.scale) });
+    }
+  };
+  const onStagePointerUp = (event: React.PointerEvent) => {
+    pointersRef.current.delete(event.pointerId);
+    const remainingPointer = pointersRef.current.values().next().value as { x: number; y: number } | undefined;
+    gestureRef.current = {
+      distance: 0,
+      centerX: remainingPointer?.x ?? 0,
+      centerY: remainingPointer?.y ?? 0,
+      scale: activeZoom.scale,
+      x: activeZoom.x,
+      y: activeZoom.y,
+    };
+  };
+  const [liveSensor, setLiveSensor] = useState({} as { plantId?: string; ready?: boolean; failed?: boolean; sensor?: PlantSensor; sampledAt?: string });
+  const activeLiveSensor = liveSensor.plantId === plantId ? liveSensor : null;
+  const showLiveSensor = plant?.siteCode === "HYDROPONIC";
+  useEffect(() => {
+    if (typeof plantId !== "string" || plant?.siteCode !== "HYDROPONIC") return;
+    let active = true;
+    let timer = 0;
+    const load = async () => {
+      try {
+        const data = await getPlantCurrent(plantId);
+        if (active) setLiveSensor({ plantId, ready: true, sensor: data.sensor, sampledAt: data.sampledAt ?? data.sensor?.sampledAt });
+      } catch {
+        if (active) setLiveSensor({ plantId, failed: true });
+      }
+      if (active) timer = window.setTimeout(load, 30000);
+    };
+    void load();
+    return () => { active = false; if (timer) window.clearTimeout(timer); };
+  }, [plantId, plant?.siteCode]);
   const collapseVideo = () => {
+    setVideoZoom({ plantKey: activePlantKey, scale: 1, x: 0, y: 0 });
     setExpandedForPlantKey(null);
   };
 
@@ -100,7 +183,7 @@ export default function LivePage() {
 
   useEffect(() => {
     if (typeof plantId !== "string") return;
-    if (plant?.streamingUrl) return;
+    if (plant?.streamingUrl && hasCapabilities) return;
     let active = true;
     getPlantById(plantId).then((data) => {
       if (!active) return;
@@ -125,7 +208,7 @@ export default function LivePage() {
       }
     });
     return () => { active = false; };
-  }, [assignedCamera, plantId, plantRetry, plant?.rdkCameraId, plant?.rdkZone, plant?.streamingUrl]);
+  }, [assignedCamera, hasCapabilities, plantId, plantRetry, plant?.rdkCameraId, plant?.rdkZone, plant?.streamingUrl]);
 
   const retryPlantStream = useCallback(async (automatic = false) => {
     if (typeof plantId !== "string") return;
@@ -133,7 +216,6 @@ export default function LivePage() {
     setPlantRequest({ id: plantId, status: "loading" });
     if (!automatic) {
       setAutoReconnectCount(0);
-      setFullStreamUnavailable(null);
     }
     setVideoRetry((value) => value + 1);
     try {
@@ -190,8 +272,66 @@ export default function LivePage() {
     else removeDraft(`record:${plantId}`);
   }, [draftFor, plantId, recordForm]);
 
+  const activeWaterCommand = waterCommand?.plantId === plantId ? waterCommand : null;
+  const waterCommandId = activeWaterCommand?.id || activeWaterCommand?._id || null;
+  const waterCommandStatus = activeWaterCommand?.status;
+  const waterRetryPending = Boolean(waterError && waterRetryPlantId === plantId);
+  useEffect(() => {
+    if (waterCommandStatus && ["COMPLETED", "FAILED", "CANCELLED"].includes(waterCommandStatus)) {
+      waterAttemptRef.current = null;
+    }
+    if (!waterSheetOpen || !waterCommandId || !waterCommandStatus ||
+      ["COMPLETED", "FAILED", "NEEDS_REVIEW", "CANCELLED"].includes(waterCommandStatus)) return;
+    let active = true;
+    let timer: number | undefined;
+    let attempts = 0;
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const data = await getWaterCommand(waterCommandId);
+        if (!active) return;
+        const command = data.command;
+        setWaterCommand(command);
+        if (command.status === "PENDING") setWaterStatus("Y-Farm 장치가 요청을 확인할 때까지 기다리고 있어요.");
+        else if (command.status === "DISPATCHED") setWaterStatus("급수 중이에요. 완료량은 유량 보정 기준의 추정치로 기록됩니다.");
+        else if (command.status === "COMPLETED") setWaterStatus(`급수가 완료됐어요. 기록량은 ${command.estimatedVolume ?? command.volume}mL 추정치예요.`);
+        else if (command.status === "NEEDS_REVIEW") setWaterStatus("실행 결과를 확인해야 해요. 안전을 위해 자동 재시도하지 않았어요.");
+        else if (command.status === "FAILED") setWaterStatus("급수에 실패했어요. 장치 연결을 확인해주세요.");
+      } catch {
+        if (active) setWaterStatus("상태를 확인하지 못했어요. 잠시 후 다시 열어 확인해주세요.");
+      }
+      if (active && attempts < 60) timer = window.setTimeout(poll, 3000);
+      else if (active) setWaterStatus("상태 조회가 오래 걸리고 있어요. 요청 ID로 다시 확인할 수 있어요.");
+    };
+    timer = window.setTimeout(poll, 2500);
+    return () => { active = false; if (timer) window.clearTimeout(timer); };
+  }, [waterSheetOpen, waterCommandId, waterCommandStatus]);
+
   const closeSheet = () => {
     setIsRecordSheetOpen(false);
+  };
+
+  const submitWaterRequest = async () => {
+    if (typeof plantId !== "string" || waterSubmitting || !irrigationReady) return;
+    setWaterSubmitting(true);
+    setWaterError("");
+    setWaterStatus("급수 요청을 전송하고 있어요.");
+    try {
+      const attempt = waterAttemptRef.current?.plantId === plantId
+        ? waterAttemptRef.current
+        : { plantId, volume: waterVolume, key: globalThis.crypto.randomUUID() };
+      waterAttemptRef.current = attempt;
+      const data = await requestPlantWater(plantId, attempt.volume, attempt.key);
+      setWaterCommand(data.command);
+      setWaterRetryPlantId(null);
+      setWaterStatus("급수 요청을 접수했어요. 장치 상태를 확인하고 있어요.");
+    } catch (error) {
+      setWaterError(error instanceof Error ? error.message : "급수 요청의 결과를 확인하지 못했어요.");
+      setWaterRetryPlantId(plantId);
+      setWaterStatus("결과가 불확실해요. 다시 누르면 같은 요청 ID로 확인하며 새 급수를 만들지 않습니다.");
+    } finally {
+      setWaterSubmitting(false);
+    }
   };
 
   const captureStreamFrame = async () => {
@@ -330,7 +470,7 @@ export default function LivePage() {
 
         <section aria-label={`${plant.name} 실시간 카메라`} className={`relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#171b16] ${isVideoExpanded ? "rounded-none border-0 shadow-none" : "rounded-[24px] border border-[#e7eadf] shadow-[0_10px_28px_rgba(51,69,39,0.12)]"}`}>
           <div
-            className={`relative min-h-0 flex-1 overflow-hidden bg-[#171b16] ${isVideoExpanded ? "touch-none" : ""}`}
+            onPointerDown={onStagePointerDown} onPointerMove={onStagePointerMove} onPointerUp={onStagePointerUp} onPointerCancel={onStagePointerUp} className={`relative min-h-0 flex-1 overflow-hidden bg-[#171b16] ${isVideoExpanded ? "touch-none" : ""}`}
             style={{ willChange: "transform", isolation: "isolate" }}
           >
             {plant.streamingUrl && (
@@ -339,25 +479,16 @@ export default function LivePage() {
                 src={displayStreamUrl ?? plant.streamingUrl}
                 alt={`${plant.name} 실시간 카메라 영상`}
                 onLoad={() => { setAutoReconnectCount(0); setVideoState({ src: plant.streamingUrl ?? null, status: "ready" }); }}
-                onError={() => {
-                  if (streamUrl && !fullStreamFallbackActive) {
-                    setFullStreamUnavailable({ plantKey: activePlantKey, streamUrl });
-                    return;
-                  }
-                  setVideoState({ src: plant.streamingUrl ?? null, status: "error" });
-                }}
+                onError={() => setVideoState({ src: plant.streamingUrl ?? null, status: "error" })}
                 className="absolute inset-0 h-full w-full object-contain"
-                style={{ willChange: "transform", transform: `rotate(${videoRotation}deg)`, transition: "transform 180ms ease-out" }}
+                style={{ willChange: "transform", transform: `translate3d(${activeZoom.x}px, ${activeZoom.y}px, 0) scale(${activeZoom.scale}) rotate(${videoRotation}deg)`, transition: "transform 180ms ease-out" }}
               />
             )}
             {videoStatus !== "ready" && (
               <p aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-xs font-semibold text-white/70">
-                {videoStatus === "error" ? "카메라 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요." : videoStatus === "loading" ? "카메라에 연결하고 있어요…" : "연결된 카메라가 없어요."}
-              </p>
-            )}
-            {fullStreamFallbackActive && videoStatus === "ready" && (
-              <p role="status" className="absolute left-1/2 top-14 -translate-x-1/2 rounded-full bg-black/65 px-3 py-1.5 text-center text-xs font-semibold text-white/85">
-                전체 프레임을 사용할 수 없어 영역 화면으로 전환했어요.
+                {videoStatus === "error"
+                  ? isVideoExpanded ? "원본 전체 화면을 불러오지 못했어요. 카메라 보정 설정과 연결을 확인해주세요." : "카메라 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요."
+                  : videoStatus === "loading" ? "카메라에 연결하고 있어요…" : "연결된 카메라가 없어요."}
               </p>
             )}
             <span role="status" className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-extrabold text-gray-800 shadow-sm backdrop-blur-sm">
@@ -399,24 +530,48 @@ export default function LivePage() {
           </div>
         </section>
 
+        {showLiveSensor && !isVideoExpanded && (
+          <div className={`relative z-20 order-0 flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl bg-[#f5f7f2] px-3 py-2 text-[11px] font-semibold text-[#416a34]`}>
+            {activeLiveSensor && activeLiveSensor.sensor ? (
+              <>
+              <span>온도 {activeLiveSensor.sensor.degree.toFixed(1)}℃</span>
+              <span>습도 {Math.round(activeLiveSensor.sensor.moisture_air)}%</span>
+              <span>토양 {Math.round(activeLiveSensor.sensor.moisture_soil)} ADC</span>
+              <span>조도 {activeLiveSensor.sensor.rux === null ? `-` : Math.round(activeLiveSensor.sensor.rux)} lx</span>
+              <span className="basis-full text-center text-[10px] font-medium text-[#73836a]">RDK 측정 · {activeLiveSensor.sampledAt ? new Date(activeLiveSensor.sampledAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "측정 시각 확인 불가"}</span>
+              </>
+            ) : (
+              <span>{activeLiveSensor && activeLiveSensor.failed ? "RDK 센서 연결을 확인해 주세요" : "RDK 센서 스냅샷을 기다리고 있어요"}</span>
+            )}
+          </div>
+        )}
         {/* ═══ Bottom Action Button ═══ */}
         {!isVideoExpanded && <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="relative z-20 order-last flex w-full shrink-0 justify-center"
+          className={`relative z-20 order-last grid w-full shrink-0 gap-3 ${plant.siteCode === "Y_FARM" ? "grid-cols-2" : "grid-cols-1"}`}
         >
           {/* Record Button */}
           <motion.button
             whileTap={{ scale: 0.92 }}
             aria-label={`${plant.name} 성장 기록 남기기`}
             onClick={() => { setRecordError(""); setImageCaptureFeedback(""); setIsRecordSheetOpen(true); }}
-            className="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#5b873a] px-5 text-[15px] font-extrabold text-white shadow-[0_8px_18px_rgba(77,116,49,0.2)]"
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#5b873a] px-3 text-[15px] font-extrabold text-white shadow-[0_8px_18px_rgba(77,116,49,0.2)]"
           >
-            <Edit3 size={19} strokeWidth={2.3} aria-hidden="true" />
+            <Edit3 size={18} strokeWidth={2.3} aria-hidden="true" />
             <span>메모 남기기</span>
           </motion.button>
-
+          {plant.siteCode === "Y_FARM" && <motion.button
+            type="button"
+            whileTap={{ scale: 0.92 }}
+            onClick={() => { setWaterError(""); setWaterSheetOpen(true); }}
+            aria-label={irrigationReady ? `${plant.name} 급수하기` : `${plant.name} 급수 준비 중`}
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-[#dce8d1] bg-[#f3f8ee] px-3 text-[15px] font-extrabold text-[#527d36]"
+          >
+            <Droplets size={19} aria-hidden="true" />
+            <span>{irrigationReady ? "급수" : "급수 준비 중"}</span>
+          </motion.button>}
         </motion.div>}
 
         {/* 현재 식물 주변 최대 3개까지 가운데 정렬해 표시합니다. */}
@@ -536,6 +691,39 @@ export default function LivePage() {
                   </button>
                 </form>
       </BottomSheet>
+      {plant.siteCode === "Y_FARM" && <BottomSheet
+        open={waterSheetOpen}
+        onClose={() => setWaterSheetOpen(false)}
+        title={`${plant.name} 급수`}
+        description="식물에 연결된 Y-Farm 노즐로 급수를 요청합니다."
+        halfY={310}
+        footer={<button
+          type="button"
+          onClick={() => { void submitWaterRequest(); }}
+          disabled={!irrigationReady || waterSubmitting || Boolean(activeWaterCommand && ["PENDING", "DISPATCHED", "NEEDS_REVIEW"].includes(activeWaterCommand.status))}
+          className="min-h-12 w-full rounded-xl bg-[#5b873a] px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+        >{waterSubmitting ? "요청 중…" : activeWaterCommand && ["PENDING", "DISPATCHED", "NEEDS_REVIEW"].includes(activeWaterCommand.status) ? "기존 요청 상태 확인 중" : waterRetryPending ? "같은 요청 재확인" : "급수 요청"}</button>}
+      >
+        <div className="flex flex-col gap-4 pb-4">
+          {!irrigationReady && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">{plant.irrigationEnabled ? "Y-Farm 급수 장치가 아직 준비 중이에요." : "관리자가 Pi 노즐과 식물 연결을 완료해야 급수할 수 있어요."}</p>}
+          <fieldset disabled={!irrigationReady || waterSubmitting || waterRetryPending || Boolean(activeWaterCommand && ["PENDING", "DISPATCHED", "NEEDS_REVIEW"].includes(activeWaterCommand.status))} className="min-w-0 border-0 p-0">
+            <legend className="mb-2 text-sm font-extrabold text-gray-800">급수량 선택</legend>
+            <div className="grid grid-cols-5 gap-2" role="group" aria-label="급수량">
+              {[10, 20, 30, 50, 100].map((volume) => <button
+                key={volume}
+                type="button"
+                aria-pressed={waterVolume === volume}
+                onClick={() => setWaterVolume(volume)}
+                className={`min-h-11 rounded-xl border text-sm font-bold ${waterVolume === volume ? "border-[#5b873a] bg-[#edf5e8] text-[#416a34]" : "border-gray-200 bg-white text-gray-700"}`}
+              >{volume}mL</button>)}
+            </div>
+          </fieldset>
+          <p className="rounded-xl bg-[#f5f7f2] p-3 text-xs leading-5 text-gray-600">현재 실제 유량 센서가 없으므로 완료 이력은 펌프 보정값 기준의 추정량으로 표시됩니다. 결과가 불확실하면 자동 재급수하지 않습니다.</p>
+          {waterStatus && <p role="status" aria-live="polite" className="text-sm font-semibold text-[#416a34]">{waterStatus}</p>}
+          {waterError && <p role="alert" className="text-sm font-semibold text-rose-700">{waterError}</p>}
+          {activeWaterCommand && <p className="break-all rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">요청 ID: {activeWaterCommand.id || activeWaterCommand._id} · 상태: {activeWaterCommand.status}</p>}
+        </div>
+      </BottomSheet>}
     </>
   );
 }

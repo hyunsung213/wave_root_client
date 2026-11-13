@@ -16,6 +16,8 @@ export interface Plant {
   userId?: string;
   name: string;
   type: string;
+  siteCode?: "HYDROPONIC" | "Y_FARM";
+  capabilities?: { streaming: boolean; irrigation: boolean };
   createdAt?: string;
   growthPercent?: number;
   growthDays?: number;
@@ -24,6 +26,10 @@ export interface Plant {
   rdkZone?: number | null;
   streamingUrl?: string | null;
   streamingStatus?: "unassigned" | "ready" | "unavailable";
+  irrigationEnabled?: boolean;
+  irrigationDeviceId?: string | null;
+  irrigationOutletIndex?: number | null;
+  irrigationPumpId?: number | null;
 }
 
 interface AppState {

@@ -1,12 +1,12 @@
 "use client";
 
-import { Filter, Bell, Settings, Info, Sprout } from "lucide-react";
+import { Filter, Bell, Settings, Info, Sprout, Droplets } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { plantsData, type PlantInfo } from "@/lib/plantsData";
-import { getCatalog, type CatalogProduct, type CatalogStatus } from "@/lib/get";
+import { getCatalog, type CatalogProduct, type CatalogStatus, type FarmSiteCode } from "@/lib/get";
 import { getPlantImage } from "@/lib/plantImages";
 import { useStore } from "@/store/useStore";
 import { readDraft, removeDraft, writeDraft } from "@/lib/drafts";
@@ -14,14 +14,15 @@ import BrandLogo from "@/components/layout/BrandLogo";
 
 const BottomSheet = dynamic(() => import("@/components/ui/BottomSheet"), { ssr: false });
 
-type MarketCategoryId = "all" | "leafy-greens" | "herbs" | "edible-flowers";
-type MarketPlant = PlantInfo & { status: CatalogStatus };
+type MarketCategoryId = "all" | "leafy-greens" | "herbs" | "edible-flowers" | "fruiting-vegetables";
+type MarketPlant = PlantInfo & { status: CatalogStatus; siteCode: FarmSiteCode; requiresWater: boolean };
 
 const marketCategories: { id: MarketCategoryId; label: string; plantIds: readonly string[] | null }[] = [
   { id: "all", label: "전체", plantIds: null },
   { id: "leafy-greens", label: "잎채소", plantIds: ["lettuce", "romaine", "arugula", "green_oakleaf_lettuce", "butterhead", "tatsoi", "bok_choy", "young_napa_cabbage"] },
   { id: "herbs", label: "허브", plantIds: ["basil"] },
   { id: "edible-flowers", label: "식용꽃", plantIds: ["marigold", "nasturtium"] },
+  { id: "fruiting-vegetables", label: "열매채소", plantIds: ["tomato", "cherry_tomato", "pepper"] },
 ] as const;
 
 export default function MarketPage() {
@@ -35,15 +36,18 @@ export default function MarketPage() {
   const [nameError, setNameError] = useState("");
   const [sortBy, setSortBy] = useState<"recommended" | "price">("recommended");
   const [selectedCategory, setSelectedCategory] = useState<MarketCategoryId>("all");
-  const [catalog, setCatalog] = useState<CatalogProduct[] | null>(null);
+  const [catalog, setCatalog] = useState<Record<FarmSiteCode, CatalogProduct[]> | null>(null);
   const [catalogError, setCatalogError] = useState("");
   const [catalogRefresh, setCatalogRefresh] = useState(0);
 
   useEffect(() => {
     let active = true;
-    getCatalog().then((data) => {
+    Promise.all([getCatalog("HYDROPONIC"), getCatalog("Y_FARM")]).then(([hydroponic, yFarm]) => {
       if (!active) return;
-      setCatalog(Array.isArray(data.products) ? data.products : []);
+      setCatalog({
+        HYDROPONIC: Array.isArray(hydroponic.products) ? hydroponic.products : [],
+        Y_FARM: Array.isArray(yFarm.products) ? yFarm.products : [],
+      });
       setCatalogError("");
     }).catch(() => {
       if (!active) return;
@@ -60,25 +64,35 @@ export default function MarketPage() {
   }, []);
 
   const category = marketCategories.find((item) => item.id === selectedCategory) ?? marketCategories[0];
-  const catalogById = new Map(catalog?.map((product) => [product.id, product]));
-  const categoryPlants: MarketPlant[] = plantsData
-    .filter((plant) => {
-      const status = catalogById.get(plant.id)?.status;
-      return (status === "available" || status === "upcoming") && (!category.plantIds || category.plantIds.includes(plant.id));
-    })
-    .map((plant) => ({
+  const catalogEntries: Array<{ product: CatalogProduct; plant: PlantInfo; siteCode: FarmSiteCode }> = catalog
+    ? (["HYDROPONIC", "Y_FARM"] as const).flatMap((siteCode) => catalog[siteCode].flatMap((product) => {
+      const plant = plantsData.find((item) => item.id === product.id);
+      return plant ? [{ product, plant, siteCode }] : [];
+    }))
+    : [];
+  const categoryPlants: MarketPlant[] = catalogEntries
+    .filter(({ product, plant }) =>
+      (product.status === "available" || product.status === "upcoming") &&
+      (!category.plantIds || category.plantIds.includes(plant.id)))
+    .map(({ product, plant, siteCode }) => ({
       ...plant,
-      price: catalogById.get(plant.id)!.price ?? plant.price,
-      timeToHarvest: catalogById.get(plant.id)!.growthTargetDays ?? plant.timeToHarvest,
-      status: catalogById.get(plant.id)!.status,
+      name: product.name || plant.name,
+      price: product.price ?? plant.price,
+      timeToHarvest: product.growthTargetDays ?? plant.timeToHarvest,
+      status: product.status,
+      siteCode,
+      requiresWater: siteCode === "Y_FARM",
     }));
-  const sortedPlants = sortBy === "price" ? [...categoryPlants].sort((a, b) => a.status === b.status ? a.price - b.price : a.status === "available" ? -1 : 1) : categoryPlants;
+  const sortedPlants = [...categoryPlants].sort((a, b) => {
+    if (a.status !== b.status) return a.status === "upcoming" ? 1 : -1;
+    return sortBy === "price" ? a.price - b.price : 0;
+  });
 
   // 식물 클릭 시 Bottom Sheet 오픈
   const openSheet = (plant: MarketPlant) => {
     if (plant.status !== "available") return;
     setSelectedPlant(plant);
-    setCustomPlantName(readDraft(`plant-name:${plant.id}`) || `우리집 ${plant.name}`);
+    setCustomPlantName(readDraft("plant-name:" + plant.siteCode + ":" + plant.id) || `우리집 ${plant.name}`);
     setNameError("");
     setIsSheetOpen(true);
   };
@@ -91,7 +105,7 @@ export default function MarketPage() {
   // 상품 확인 화면으로 이동한다. 결제는 주문 API가 준비될 때까지 진행하지 않는다.
   const goToCheckout = () => {
     if (!selectedPlant) return;
-    if (catalog?.find((product) => product.id === selectedPlant.id)?.status !== "available") {
+    if (catalog?.[selectedPlant.siteCode].find((product) => product.id === selectedPlant.id)?.status !== "available") {
       setNameError("이 식물은 현재 분양할 수 없습니다.");
       return;
     }
@@ -100,9 +114,9 @@ export default function MarketPage() {
       return;
     }
 
-    removeDraft(`plant-name:${selectedPlant.id}`);
+    removeDraft("plant-name:" + selectedPlant.siteCode + ":" + selectedPlant.id);
     setPendingPlantName(customPlantName.trim());
-    router.push(`/checkout/${selectedPlant.id}`);
+    router.push("/checkout/" + selectedPlant.id + "?site=" + selectedPlant.siteCode);
   };
 
   return (
@@ -164,7 +178,7 @@ export default function MarketPage() {
         </div>
 
         <div className="mb-3 flex justify-between items-center">
-          <span className="text-xs font-bold text-gray-400">{sortedPlants.length}종</span>
+              <span className="text-xs font-bold text-gray-400">{sortedPlants.length}종</span>
           <button
             onClick={() => setSortBy(sortBy === "recommended" ? "price" : "recommended")}
             aria-label={sortBy === "recommended" ? "추천순 정렬, 가격 낮은순으로 변경" : "가격 낮은순 정렬, 추천순으로 변경"}
@@ -180,7 +194,7 @@ export default function MarketPage() {
           {catalogError && <div className="rounded-3xl border border-[#dce5d4] bg-[#f8faf5] px-5 py-8 text-center"><p className="text-sm font-semibold text-gray-700">{catalogError}</p><button type="button" onClick={() => { setCatalogError(""); setCatalogRefresh((value) => value + 1); }} className="mt-4 min-h-11 rounded-xl bg-[#6ea447] px-5 text-sm font-bold text-white">다시 시도</button></div>}
           {sortedPlants.map((plant) => (
             <button type="button" disabled={plant.status !== "available"}
-              key={plant.id} 
+              key={plant.siteCode + ":" + plant.id}
               onClick={() => openSheet(plant)}
               className="flex w-full gap-4 p-4 border border-gray-100 rounded-3xl shadow-sm hover:border-[#e2ecc8] transition-colors text-left cursor-pointer active:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-75"
             >
@@ -198,8 +212,9 @@ export default function MarketPage() {
                 <p className="text-[10px] text-gray-500 mb-2 line-clamp-2 leading-tight pr-2">
                   {plant.characteristics}
                 </p>
-                {plant.hashtags && <div aria-label={`${plant.name} 해시태그`} className="mb-2 flex flex-wrap gap-1.5">
-                  {plant.hashtags.map((tag) => <span key={tag} className="rounded-full bg-[#f1f6ed] px-2 py-0.5 text-[10px] font-semibold text-[#587d3e]">#{tag}</span>)}
+                {(plant.hashtags || plant.requiresWater) && <div aria-label={`${plant.name} 해시태그`} className="mb-2 flex flex-wrap gap-1.5">
+                  {plant.hashtags?.map((tag) => <span key={tag} className="rounded-full bg-[#f1f6ed] px-2 py-0.5 text-[10px] font-semibold text-[#587d3e]">#{tag}</span>)}
+                  {plant.requiresWater && <span className="rounded-full border border-[#c9e6ee] bg-[#edf8fb] px-2 py-0.5 text-[10px] font-extrabold text-[#267287]">#급수필요</span>}
                 </div>}
                 <p className="font-bold text-sm text-[#6ea447]">{plant.status === "upcoming" ? "준비 중 · 선택할 수 없어요" : `${plant.price.toLocaleString()}원`}</p>
               </div>
@@ -249,6 +264,11 @@ export default function MarketPage() {
                     </p>
                   </div>
 
+                  {selectedPlant.requiresWater && <div role="note" className="mb-5 flex items-start gap-3 rounded-2xl border border-[#c9e6ee] bg-[#edf8fb] p-4 text-[#267287]">
+                    <Droplets size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <p className="text-sm font-bold leading-relaxed">Y-Farm에서 자라는 식물은 생육 상태에 맞춰 물을 제때 줘야 해요.</p>
+                  </div>}
+
                   <div className="mb-6">
                      <label htmlFor="market-plant-name" className="block text-sm font-bold text-gray-700 mb-2">
                       식물 이름 정하기
@@ -258,7 +278,7 @@ export default function MarketPage() {
                       type="text"
                        autoComplete="off"
                       value={customPlantName}
-                       onChange={(e) => { setCustomPlantName(e.target.value); setNameError(""); if (selectedPlant) writeDraft(`plant-name:${selectedPlant.id}`, e.target.value); }}
+                       onChange={(e) => { setCustomPlantName(e.target.value); setNameError(""); if (selectedPlant) writeDraft("plant-name:" + selectedPlant.siteCode + ":" + selectedPlant.id, e.target.value); }}
                        onBlur={() => setNameError(customPlantName.trim() ? "" : "식물 이름을 입력해주세요.")}
                        aria-invalid={Boolean(nameError)}
                        aria-describedby={nameError ? "market-plant-name-error" : undefined}
@@ -300,7 +320,10 @@ export default function MarketPage() {
                           <p key={`${selectedPlant.id}-characteristic-${index}`}>{paragraph}</p>
                         ))}
                       </div>
-                      {selectedPlant.hashtags && <div className="mt-3 flex flex-wrap gap-2">{selectedPlant.hashtags.map((tag) => <span key={tag} className="rounded-full bg-[#eaf5e5] px-2.5 py-1 text-xs font-semibold text-[#4d7836]">#{tag}</span>)}</div>}
+                      {(selectedPlant.hashtags || selectedPlant.requiresWater) && <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedPlant.hashtags?.map((tag) => <span key={tag} className="rounded-full bg-[#eaf5e5] px-2.5 py-1 text-xs font-semibold text-[#4d7836]">#{tag}</span>)}
+                        {selectedPlant.requiresWater && <span className="rounded-full border border-[#c9e6ee] bg-[#edf8fb] px-2.5 py-1 text-xs font-extrabold text-[#267287]">#급수필요</span>}
+                      </div>}
                     </div>
                   </div>
 

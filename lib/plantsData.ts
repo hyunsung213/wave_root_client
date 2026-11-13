@@ -8,7 +8,7 @@ export interface PlantInfo {
   wateringCycle: string;
   characteristics: string;
   price: number;
-  category?: "엽채류" | "화훼류" | "허브류";
+  category?: "엽채류" | "화훼류" | "허브류" | "열매채소";
   bestSeason?: string;
   temperatureTendency?: string;
   hashtags?: string[];
@@ -64,6 +64,19 @@ export const plantsData: PlantInfo[] = [
     optimalTemperature: "주간 25~30°C, 야간 15~17°C",
     wateringCycle: "겉흙이 깊게 말랐을 때 듬뿍 관수 (물이 부족하면 열매가 갈라질 수 있으므로 개화기 이후엔 수분을 일정하게 유지)",
     characteristics: "햇빛을 매우 많이 필요로 하는 작물입니다. 키가 크고 열매가 무거워지므로 지주대를 세워 묶어주어야 하며, 원줄기가 잘 자라도록 곁순을 꼼꼼히 제거해 주어야 합니다.",
+    price: 6000,
+  },
+  {
+    id: "cherry_tomato",
+    name: "방울토마토",
+    category: "열매채소",
+    hashtags: ["열매채소", "새콤달콤", "햇빛사랑"],
+    imageUrl: "/plants/tomato.png",
+    growthPeriod: "시설 환경에서 재배하는 열매채소",
+    timeToHarvest: 80,
+    optimalTemperature: "주간 25~30°C, 야간 15~17°C",
+    wateringCycle: "Y-Farm 재배 환경에서 양액·수분 공급을 확인하고 생육 단계에 맞춰 급수합니다.",
+    characteristics: "작고 둥근 열매를 맺는 토마토입니다. 햇빛을 충분히 받고 생육 단계에 맞는 지지와 수분 관리가 필요합니다.",
     price: 6000,
   },
   {

@@ -1,5 +1,6 @@
 import { api } from "./api";
 import type { Plant, User } from "@/store/useStore";
+import type { FarmSiteCode } from "@/lib/get";
 
 interface ApiResult {
   success: boolean;
@@ -48,20 +49,44 @@ export async function createAdoptionOrder(data: {
   productId: string;
   plantName: string;
   depositorName: string;
+  siteCode: FarmSiteCode;
   couponCode?: string;
 }) {
   const res = await api.post<{ success: boolean; order: CheckoutOrder }>("/api/web/orders", data);
   return res.data;
 }
 
-export async function validateAdoptionCoupon(productId: string, code: string) {
+export async function validateAdoptionCoupon(productId: string, code: string, siteCode: FarmSiteCode) {
   const res = await api.post<{
     success: boolean;
     coupon: { code: string; name?: string | null; discountType: "percent" | "fixed"; discountValue: number };
     subtotal: number;
     discountAmount: number;
     amountDue: number;
-  }>("/api/web/coupons/validate", { productId, code });
+  }>("/api/web/coupons/validate", { productId, code, siteCode });
+  return res.data;
+}
+
+export interface WaterCommand {
+  id?: string;
+  _id?: string;
+  plantId: string;
+  volume: number;
+  status: "PENDING" | "DISPATCHED" | "COMPLETED" | "FAILED" | "NEEDS_REVIEW" | "CANCELLED";
+  estimatedVolume?: number | null;
+  executionUncertain?: boolean;
+  failureReason?: string | null;
+}
+
+export async function requestPlantWater(plantId: string, volume: number, idempotencyKey: string) {
+  const res = await api.post<{ success: boolean; command: WaterCommand }>("/api/web/control/water", {
+    plantId, volume, idempotencyKey,
+  }, { headers: { "Idempotency-Key": idempotencyKey } });
+  return res.data;
+}
+
+export async function getWaterCommand(commandId: string) {
+  const res = await api.get<{ success: boolean; command: WaterCommand }>(`/api/web/control/water/${encodeURIComponent(commandId)}`);
   return res.data;
 }
 

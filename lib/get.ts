@@ -9,8 +9,21 @@ export interface CatalogProduct {
   status: CatalogStatus;
 }
 
-export async function getCatalog() {
-  const res = await api.get<{ success: boolean; products: CatalogProduct[] }>("/api/web/catalog");
+export type FarmSiteCode = "HYDROPONIC" | "Y_FARM";
+export interface FarmSite {
+  code: FarmSiteCode;
+  name: string;
+  streamingGateway: "RDK_X5" | "RASPBERRY_PI";
+  capabilities: { streaming: boolean; irrigation: boolean };
+}
+
+export async function getSites() {
+  const res = await api.get<{ success: boolean; sites: FarmSite[] }>("/api/web/sites");
+  return res.data;
+}
+
+export async function getCatalog(siteCode: FarmSiteCode = "HYDROPONIC") {
+  const res = await api.get<{ success: boolean; products: CatalogProduct[] }>("/api/web/catalog", { params: { siteCode } });
   return res.data;
 }
 
@@ -86,4 +99,13 @@ export async function getMyCoupons() {
 export async function getMyOrder(orderId: string) {
   const res = await api.get(`/api/web/orders/${encodeURIComponent(orderId)}`);
   return res.data;
+}
+
+export interface PlantSensor {
+  degree: number;
+  moisture_air: number;
+  moisture_soil: number;
+  rux: number | null;
+  sampledAt?: string;
+  sensorScope?: string;
 }

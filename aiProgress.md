@@ -1,5 +1,18 @@
 # AI 작업 기록
 
+## 2026-11-13
+
+- 수경재배 라이브 화면을 RDK `mode=crop` / `mode=full` 계약에 연결함. 축소 화면은 식물 zone crop, 확장 화면은 전체 프레임을 요청하고 `object-contain`으로 표시함. 전체 화면 오류 시 자동으로 사용자별 crop 영상에 폴백하지 않고 원본 스트림 오류를 표시함. 기존 핀치 zoom·pan 및 Y-Farm 센서/급수 변경은 보존함. `tsc --noEmit --incremental false`, Next.js production build, backend `npm test` 93/93, `git diff --check` 통과. RDK 실기 전체/크롭 헤더를 검증했고 카메라 소유자 전용 임시 할당은 삭제하여 기존 23개 할당 snapshot이 일치함. RDK/Pi 센서 실측값 및 모바일 핀치 시각 검증, Vercel 배포는 하지 않음.
+
+## 2026-11-11
+
+- 13:02:14 +09:00 — `live/[plantId]`의 Y-Farm 급수 요청이 네트워크 오류 후 다시 눌렸을 때 같은 식물·용량·멱등 키로 재확인하도록 변경하고 불확실 상태에서 급수량 변경을 잠금. 대상 ESLint·TypeScript·프로덕션 빌드 통과. 실제 하드웨어 요청·배포는 하지 않음.
+- 12:57:27 +09:00 — 배포 전 보안 점검으로 Next.js/잠금 파일의 운영 의존성을 갱신해 운영 `npm audit` 0건을 확인하고, `next.config.ts`에 콘텐츠 타입·프레임·Referrer·브라우저 권한 제한 헤더를 추가함. 타입 검사와 프로덕션 빌드 통과, 로컬 `/login` 응답 헤더 확인. 운영 사이트에서 데모 로그인·홈·분양 화면을 읽기 전용으로 확인함. 다른 AI의 Y-Farm 화면 변경분은 보존했으며 실제 급수/스트림은 작동시키지 않음. Pi 인증 키 현장 적용과 중복 급수 재시도 검증이 남아 프론트 운영 배포는 보류함.
+
+## 2026-11-03
+
+- Impeccable 4.8.0 디자인 스킬을 `npx skills add pbakaus/impeccable --skill impeccable -a cline -y`로 설치함. Skills CLI 기본 `.agents/skills/impeccable` 외에 Cline 공식 문서가 안내하는 `.cline/skills/impeccable`에도 복사해 두 경로를 모두 지원하도록 함. `skills-lock.json` 생성, detector 결과를 `.impeccable/detect-source.json`에 저장하고 공식 임시 상태 제외 규칙을 `.gitignore`에 추가함. `npx impeccable detect --json app components` 결과는 `[]`였으나 28개 파일에 대한 CSS/TS/TSX 정규식 검사라 렌더 DOM 규칙은 포함되지 않는다는 경고가 있었음. `npx eslint app components --no-warn-ignored`와 `git diff --check` 통과. 로컬 dev 서버는 도구 실행 제한 시간 내 기동하지 못해 URL/브라우저 검사는 미실시. UI 코드는 변경하지 않음.
+
 ## 2026-10-26
 
 - 라이브 카메라를 축소·확장 상태 모두 전체 `mode=full` 프레임으로 요청하고, 실패 시 `mode=crop` 폴백 및 해당 URL 캡처가 동작하도록 프록시 허용 모드를 확장함. 식물 키 기준으로 확장·폴백 상태를 파생해 식물 변경 effect의 동기 상태 설정을 제거하고, 미사용 `fallbackStreamUrl`과 참조되지 않는 `WebGLStream.tsx`를 삭제함. RDK README를 현재 스트림 동작에 맞춤. 변경 파일 ESLint, TypeScript, 백엔드 전체 테스트(61/61), `git diff --check` 통과. production build는 실행 도구의 30초 제한에 걸려 완료를 확인하지 못했으며, 실기기 검증은 미수행.
