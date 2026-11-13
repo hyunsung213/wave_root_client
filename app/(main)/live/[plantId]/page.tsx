@@ -152,7 +152,7 @@ export default function LivePage() {
       y: activeZoom.y,
     };
   };
-  const [liveSensor, setLiveSensor] = useState({} as { plantId?: string; ready?: boolean; failed?: boolean; sensor?: PlantSensor; sampledAt?: string });
+  const [liveSensor, setLiveSensor] = useState({} as { plantId?: string; sensor?: PlantSensor; sampledAt?: string });
   const activeLiveSensor = liveSensor.plantId === plantId ? liveSensor : null;
   const showLiveSensor = plant?.siteCode === "HYDROPONIC";
   useEffect(() => {
@@ -162,9 +162,9 @@ export default function LivePage() {
     const load = async () => {
       try {
         const data = await getPlantCurrent(plantId);
-        if (active) setLiveSensor({ plantId, ready: true, sensor: data.sensor, sampledAt: data.sampledAt ?? data.sensor?.sampledAt });
+        if (active) setLiveSensor({ plantId, sensor: data.sensor, sampledAt: data.sampledAt ?? data.sensor?.sampledAt });
       } catch {
-        if (active) setLiveSensor({ plantId, failed: true });
+        if (active) setLiveSensor({ plantId });
       }
       if (active) timer = window.setTimeout(load, 30000);
     };
@@ -530,19 +530,15 @@ export default function LivePage() {
           </div>
         </section>
 
-        {showLiveSensor && !isVideoExpanded && (
+        {showLiveSensor && !isVideoExpanded && activeLiveSensor?.sensor && (
           <div className={`relative z-20 order-0 flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl bg-[#f5f7f2] px-3 py-2 text-[11px] font-semibold text-[#416a34]`}>
-            {activeLiveSensor && activeLiveSensor.sensor ? (
-              <>
+            <>
               <span>온도 {activeLiveSensor.sensor.degree.toFixed(1)}℃</span>
               <span>습도 {Math.round(activeLiveSensor.sensor.moisture_air)}%</span>
               <span>토양 {Math.round(activeLiveSensor.sensor.moisture_soil)} ADC</span>
               <span>조도 {activeLiveSensor.sensor.rux === null ? `-` : Math.round(activeLiveSensor.sensor.rux)} lx</span>
               <span className="basis-full text-center text-[10px] font-medium text-[#73836a]">RDK 측정 · {activeLiveSensor.sampledAt ? new Date(activeLiveSensor.sampledAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "측정 시각 확인 불가"}</span>
-              </>
-            ) : (
-              <span>{activeLiveSensor && activeLiveSensor.failed ? "RDK 센서 연결을 확인해 주세요" : "RDK 센서 스냅샷을 기다리고 있어요"}</span>
-            )}
+            </>
           </div>
         )}
         {/* ═══ Bottom Action Button ═══ */}
